@@ -1,0 +1,30 @@
+program := statementSequnce
+statementSequence := [ statements ]*
+statements := include_stmts | assignments | expression | ifstatements | whilestatements | caseStatement | funcstatements  | funcCall | class_stmt
+include_stmts := @include ident
+class_stmt := 'class' ident [funcStatements]* 'endclass'
+caseStatement := 'SWITCH' ident ['CASE' stetmentSequnce 'ENDCASE']*['DEFAULT' statementSequnce 'ENDDEFAULT']  'ENDSWITCH'
+funcCall := ident '(' args ')'
+ifstatements := IF condition THEN statementSequence [ELSE statementSequence] ENDIF
+whilestatements := WHILE condition DO statementSequnce ENDWHILE
+funcstatements := FUNC ident'(' args ')'  statementSequnce [RETURN expression]? ENDFUNC
+assignments := var_decl '=' [ expresssion | '[' vals ']' ]
+var_decl := ident | '#'ident
+vals := val [,val]*
+val := ident | int | '[' vals ']'
+
+
+<expression> := <term><term_tail>
+<term> := <factor><factor_tail> 
+<term_tail> := <add_op> <term> <term_tail> | empty 
+<factor> := '(' <expression> ')' | '-' <factor> |  number | <identifier> '(' <expression> ') | <identifier> 
+<factor_tail> := <mult_op> <factor> <factor_tail> | empty 
+<add_op> := '+' | '-'
+<mult_op> := '*' | '/'
+condition := [negate]? ident <condition_args> int | truthy | falsy
+negate := !
+condition_args := > | < | >= | <= |
+args = ident [,ident]*
+expression := int
+ident := ['a'..'z']+
+int := [0..9]+
