@@ -97,11 +97,24 @@ func (parser *Parser) _parseFactor() interface{} {
 		if _peakToken.Type == HALF_CIRCLE_BRACKET && _peakToken.Value == '(' {
 			// eat the variable
 			parser.eatToken()
-			// we have a function call here
+			parser.eatToken()
 
-			// we need the args here
-			// we need the comma delimeter for the args
-			// assume them for now
+			_currenToken := parser.CurrentToken()
+			var _array_of_args []interface{}
+
+			for _currenToken.Type != HALF_CIRCLE_BRACKET {
+				if _currenToken.Type == COMMA {
+					parser.eatToken()
+					_currenToken = parser.CurrentToken()
+					continue
+				}
+
+				_result := parser._parseExpression()
+				_array_of_args = append(_array_of_args, _result)
+
+				parser.eatToken()
+				_currenToken = parser.CurrentToken()
+			}
 
 			// we loop till we get to the ) bracket
 
@@ -112,6 +125,7 @@ func (parser *Parser) _parseFactor() interface{} {
 
 			parser.eatToken()
 
+			// get the args here ( start the operation of using them )
 			return FunctionCall{
 				Name:     _currentToken.Value.(string),
 				ArgCount: 0,
@@ -171,6 +185,7 @@ func (parser *Parser) _parseTerm() interface{} {
 
 func (parser *Parser) _parseExpression() interface{} {
 	term := parser._parseTerm()
+
 	termTail := parser._parseTermTail()
 
 	if termTail != nil {
@@ -247,6 +262,8 @@ func (parser *Parser) _parse(token Token) interface{} {
 			nextToken := parser.peekAhead()
 
 			if nextToken.Type == ASSIGN {
+				// eat the var too
+				parser.eatToken()
 				parser.eatToken()
 
 				lvalue := parser._parseExpression()
@@ -265,6 +282,8 @@ func (parser *Parser) _parse(token Token) interface{} {
 		{
 			// place code in this comments but how are we to parse them
 			// made allow interpolation in the comments who knows
+			// do the literate programming here
+			// extract the code from the comments then execute it
 			return CommentNode{
 				comment: token.Value.(string),
 			}

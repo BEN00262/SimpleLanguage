@@ -94,6 +94,11 @@ func (lexer *Lexer) Lex() []Token {
 		} else if lexeme == '#' {
 			lexer.eatLexeme()
 
+			// #[ comments ]# for multiline comments
+
+			// if the nextToken is a [
+			// eat all the characters until we find ]#
+
 			_currentLexeme := lexer.CurrentLexeme()
 			_currentPosition := lexer.currentPosition
 

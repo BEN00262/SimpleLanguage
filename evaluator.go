@@ -7,12 +7,16 @@ type SymbolTableValueType = int
 const (
 	FUNCTION SymbolTableValueType = iota + 1
 	VALUE
+	EXTERNALFUNC // called to the external runtime
+	EXTVALUE
 )
 
 type SymbolTableValue struct {
 	Type  SymbolTableValueType
 	Value interface{}
 }
+
+type ExternalFunction = func(value ...interface{})
 
 type Evaluator struct {
 	program      *ProgramNode
@@ -79,6 +83,7 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 					case NumberNode:
 						{
 							// check the operator
+							// find a way to inject the operators
 							switch _node.Operator {
 							case "+":
 								{
@@ -129,9 +134,25 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 			// check if the value found is a function if not throw an error
 			_function := function.(SymbolTableValue)
 
-			if _function.Type != FUNCTION {
+			if _function.Type != FUNCTION || _function.Type != EXTERNALFUNC {
 				// throw an error here
 
+			}
+
+			if _function.Type == EXTERNALFUNC {
+				// this is an externa function
+				// just call the function
+
+				_function_decl_ := _function.Value.(ExternalFunctionNode)
+
+				if _function_decl_.ParamCount != _node.ArgCount {
+					// throw an error here
+					return nil, fmt.Errorf("'%s' expected %d args but only %d args given", _node.Name, _function_decl_.ParamCount, _node.ArgCount)
+				}
+				// call the function with the args
+				// pass them as a list of interfaces
+				_function_decl_.Function()
+				return nil, nil
 			}
 
 			_function_decl_ := _function.Value.(FunctionDecl)
@@ -143,6 +164,8 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 			}
 
 			var returnValue interface{}
+
+			// check if the type is an external function
 
 			eval.symbolsTable.pushContext()
 
@@ -184,9 +207,22 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 	return nil, nil
 }
 
+// think about this very hard
+func (eval *Evaluator) InitGlobalScope() {
+	eval.symbolsTable.pushContext()
+}
+
+func (eval *Evaluator) InjectIntoGlobalScope(key string, value interface{}) {
+	eval.symbolsTable.pushToContext(key, value)
+
+}
+
+// we need a way to inject functions into the scope ( print functions and stuff )
+// the functions will just take an interface and work with it
 func (eval *Evaluator) Evaluate() interface{} {
 	var ret interface{}
 	var err error
+
 	eval.symbolsTable.pushContext()
 
 	for _, node := range eval.program.Nodes {

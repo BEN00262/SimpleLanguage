@@ -1,5 +1,7 @@
 package main
 
 const (
-	FUNC = "fun"
+	FUNC  = "fun"
+	TRUE  = "true"
+	FALSE = "false"
 )

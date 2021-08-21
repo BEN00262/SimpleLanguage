@@ -20,6 +20,23 @@ type Assignment struct {
 	Rvalue interface{}
 }
 
+// expression ( which returns a True or False )
+type ComparisonNode struct {
+}
+
+type NilNode struct{}
+
+// use an interger
+type BoolNode struct {
+	Value int
+}
+
+type ExternalFunctionNode struct {
+	Name       string
+	ParamCount int
+	Function   ExternalFunction
+}
+
 // we need a map of the args
 type FunctionCall struct {
 	Name     string

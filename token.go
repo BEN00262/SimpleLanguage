@@ -1,7 +1,7 @@
 package main
 
 var (
-	KEYWORDS = []string{FUNC}
+	KEYWORDS = []string{FUNC, TRUE, FALSE}
 )
 
 type TokenType = int
