@@ -1,41 +1,76 @@
 package main
 
-import "fmt"
+import (
+	"flag"
+	"fmt"
+	"io/ioutil"
+)
+
+var (
+	fileName  = flag.String("filename", "", "< filename > filename to execute")
+	mode      = flag.String("mode", "e", "< mode > i or e or l mode to run the interpreter") // l ( generate doc or execute the code )
+	operation = flag.String("operation", "d", "< operation > e or d operation to run the literal compiler in")
+	outfile   = flag.String("out", "", "< out file > filename to write the documentation to")
+)
+
+func getFileData(filename string) string {
+	data, err := ioutil.ReadFile(filename)
+
+	if err != nil {
+		panic(err.Error())
+	}
+
+	return string(data)
+}
 
 func main() {
-	lexer := initLexer(`
-	# void => void
-	fun sample() {
+	flag.Parse()
+
+	switch *mode {
+	case "e":
+		{
+			if *fileName == "" {
+				flag.Usage()
+				return
+			}
+
+			fmt.Println(
+				Interpreter(getFileData(*fileName)),
+			)
+		}
+	case "i":
+		{
+			REPL()
+		}
+	case "l":
+		{
+			if *fileName == "" {
+				flag.Usage()
+				return
+			}
+
+			literalParser := initLiteralParsing(getFileData(*fileName))
+
+			switch *operation {
+			case "e":
+				{
+					fmt.Println(literalParser.ExecuteLiteralCode())
+				}
+			case "d":
+				{
+					htmlDocumentation := literalParser.GenerateDocumentation()
+
+					if *outfile == "" {
+						fmt.Println(htmlDocumentation)
+						return
+					}
+
+					if err := ioutil.WriteFile(*outfile, []byte(htmlDocumentation), 0600); err != nil {
+						panic(err.Error())
+					}
+				}
+			}
+
+		}
 	}
-	`)
-
-	tokens := lexer.Lex()
-
-	// for index, token := range tokens {
-	// 	fmt.Printf("%d ==> %#v\n", index, token)
-	// }
-
-	parser := initParser(tokens)
-	program := parser.Parse()
-
-	// fmt.Println(program.Nodes...)
-	// use comments as docstrings to document the functions when running tools over the AST
-
-	evaluator := initEvaluator(program)
-
-	evaluator.InitGlobalScope()
-
-	evaluator.InjectIntoGlobalScope("print", SymbolTableValue{
-		Type: EXTERNALFUNC,
-		Value: ExternalFunctionNode{
-			Name:       "print",
-			ParamCount: 0,
-			Function: func(value ...interface{}) {
-				// you can use ur function hapa sasa :)
-				fmt.Println("Hurray we are in an external function here")
-			},
-		},
-	})
-
-	fmt.Println(evaluator.Evaluate())
 }

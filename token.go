@@ -1,7 +1,7 @@
 package main
 
 var (
-	KEYWORDS = []string{FUNC, TRUE, FALSE}
+	KEYWORDS = []string{FUNC, TRUE, FALSE, FOR, IF, ELSE, BREAK, RETURN}
 )
 
 type TokenType = int
@@ -17,6 +17,8 @@ const (
 	HALF_CIRCLE_BRACKET           // 8
 	CURLY_BRACES                  // 9
 	COMMA                         //10
+	SEMI_COLON                    // 11
+	CONDITION                     //12
 )
 
 type Token struct {

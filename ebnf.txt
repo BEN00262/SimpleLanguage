@@ -17,10 +17,12 @@ val := ident | int | '[' vals ']'
 <expression> := <term><term_tail>
 <term> := <factor><factor_tail> 
 <term_tail> := <add_op> <term> <term_tail> | empty 
-<factor> := '(' <expression> ')' | '-' <factor> |  number | <identifier> '(' <expression> ') | <identifier> 
+<factor> := '(' <expression> ')' | '(' <expression> ')' '('args')' | '-' <factor> |  number | <identifier> '(' <expression> ') | <identifier> 
 <factor_tail> := <mult_op> <factor> <factor_tail> | empty 
 <add_op> := '+' | '-'
 <mult_op> := '*' | '/'
+
+
 condition := [negate]? ident <condition_args> int | truthy | falsy
 negate := !
 condition_args := > | < | >= | <= |
