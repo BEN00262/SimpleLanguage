@@ -32,6 +32,7 @@ func (eval *Evaluator) loadModule(modulePath string) {
 func (eval *Evaluator) _eval(codeString string) (result interface{}) {
 	lexer := InitLexer(codeString)
 	parser := InitParser(lexer.Lex())
+
 	var err error
 
 	for _, node := range parser.Parse().Nodes {

@@ -83,7 +83,8 @@ func (parser *Parser) eatToken() {
 func (parser *Parser) _parseFactorTail() interface{} {
 	_currentToken := parser.CurrentToken()
 
-	if _currentToken.Type == OPERATOR && strings.Contains("*/", _currentToken.Value.(string)) {
+	// assume that % has the same affinity as these operators
+	if _currentToken.Type == OPERATOR && strings.Contains("*/%", _currentToken.Value.(string)) {
 		parser.eatToken() // eat the operator * or /
 
 		factor := parser._parseFactor()

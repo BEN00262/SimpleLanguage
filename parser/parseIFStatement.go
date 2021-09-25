@@ -5,7 +5,6 @@ import (
 )
 
 func (parser *Parser) ParseIfStatement() interface{} {
-	// expect the 'if' keyword
 	parser.IsExpectedEatElsePanic(
 		parser.CurrentToken(),
 		KEYWORD, IF,

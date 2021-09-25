@@ -50,17 +50,15 @@ func (lexer *Lexer) Lex() []Token {
 
 		if unicode.IsLetter(lexeme) {
 			_currentPosition := lexer.currentPosition
-			_currentLexeme := lexer.CurrentLexeme()
 
-			lexer.currentPosition += 1 // eat the current lexeme
+			for ; lexer.currentPosition < len(lexer.code) && unicode.IsLetter(lexer.CurrentLexeme()); lexer.currentPosition++ {
 
-			for ; lexer.currentPosition < len(lexer.code) && unicode.IsLetter(_currentLexeme); lexer.currentPosition++ {
-				_currentLexeme = lexer.CurrentLexeme()
 			}
 
-			lexer.currentPosition -= 1
-
+			// what happens is if we have one stuff eg
 			_variable := lexer.code[_currentPosition:lexer.currentPosition]
+			// lexer.currentPosition -= 1
+
 			tokenType := VARIABLE
 
 			if Contains(KEYWORDS, _variable) {
@@ -163,7 +161,7 @@ func (lexer *Lexer) Lex() []Token {
 					Value: string(lexeme),
 				})
 			}
-		} else if strings.Contains("+-*/", string(lexeme)) {
+		} else if strings.Contains("+-*/%", string(lexeme)) {
 			tokens = append(tokens, Token{
 				Type:  OPERATOR,
 				Value: string(lexeme),

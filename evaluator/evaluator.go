@@ -553,6 +553,13 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 									}, nil
 								}
 
+							case "%":
+								{
+									return NumberNode{
+										Value: _lhs.Value % _rhs.Value,
+									}, nil
+								}
+
 							case "/":
 								{
 									return NumberNode{

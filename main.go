@@ -6,8 +6,6 @@ import (
 	"io/ioutil"
 
 	. "github.com/BEN00262/simpleLang/evaluator"
-	. "github.com/BEN00262/simpleLang/lexer"
-	. "github.com/BEN00262/simpleLang/parser"
 )
 
 var (
@@ -27,7 +25,7 @@ func getFileData(filename string) string {
 	return string(data)
 }
 
-func main2() {
+func main() {
 	flag.Parse()
 
 	switch *mode {
@@ -79,27 +77,27 @@ func main2() {
 	}
 }
 
-func main() {
-	// experiment with calling function from Daisy
+// func main() {
+// 	// experiment with calling function from Daisy
 
-	evaluator := NewEvaluatorContext()
+// 	evaluator := NewEvaluatorContext()
 
-	// inject all global functions
-	evaluator.InitGlobalScope()
+// 	// inject all global functions
+// 	evaluator.InitGlobalScope()
 
-	LoadGlobalsToContext(evaluator)
+// 	LoadGlobalsToContext(evaluator)
 
-	lexer := InitLexer(`
-	fun printName(first, second) {
-		return first + second
-	}
-	`)
-	parser := InitParser(lexer.Lex())
-	evaluator.ReplExecute(parser.Parse())
+// 	lexer := InitLexer(`
+// 	fun printName(first, second) {
+// 		return first + second
+// 	}
+// 	`)
+// 	parser := InitParser(lexer.Lex())
+// 	evaluator.ReplExecute(parser.Parse())
 
-	value := DaisyInvoke(evaluator, "printName", ToDaisy(400), ToDaisy(23))
+// 	value := DaisyInvoke(evaluator, "printName", ToDaisy(400), ToDaisy(23))
 
-	fmt.Println(FromDaisy(value))
+// 	fmt.Println(FromDaisy(value))
 
-	evaluator.TearDownRepl()
-}
+// 	evaluator.TearDownRepl()
+// }
