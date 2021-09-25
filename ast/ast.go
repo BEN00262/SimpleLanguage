@@ -1,8 +1,10 @@
-package main
+package ast
 
 import (
 	"fmt"
 	"strings"
+
+	. "github.com/BEN00262/simpleLang/parser"
 )
 
 // this beauty prints the AST
@@ -79,9 +81,9 @@ func (ast *AST) _walk(child interface{}) string {
 			)
 
 			// add the stuff in
-			ast.AppendToFinalString(
-				ast._walk(_node.expression) + "\n",
-			)
+			// ast.AppendToFinalString(
+			// 	ast._walk(_node) + "\n",
+			// )
 
 			ast.AppendToFinalString(
 				ast.DisplayAtCurrentSpacing("end of an expression\n"),

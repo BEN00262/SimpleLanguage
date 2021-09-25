@@ -1,4 +1,4 @@
-package main
+package evaluator
 
 import (
 	"fmt"
@@ -15,7 +15,7 @@ type LiteralParsing struct {
 	KnuthCode string
 }
 
-func initLiteralParsing(knuthCode string) *LiteralParsing {
+func InitLiteralParsing(knuthCode string) *LiteralParsing {
 	return &LiteralParsing{
 		KnuthCode: knuthCode,
 	}

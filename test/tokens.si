@@ -1,0 +1,5 @@
+def VARIABLE = 0
+def NUMBER = 1
+def UNKNOWN = 2
+def OPERATOR = 3
+def EQUALS = 4

@@ -1,10 +1,13 @@
-package main
+package evaluator
 
 import (
 	"bufio"
 	"fmt"
 	"os"
 	"strings"
+
+	. "github.com/BEN00262/simpleLang/lexer"
+	. "github.com/BEN00262/simpleLang/parser"
 )
 
 func get(r *bufio.Reader) string {
@@ -36,8 +39,8 @@ func REPL() {
 	printRepl()
 	text := get(reader)
 	for ; shouldContinue(text); text = get(reader) {
-		lexer := initLexer(text)
-		parser := initParser(lexer.Lex())
+		lexer := InitLexer(text)
+		parser := InitParser(lexer.Lex())
 		fmt.Println(evaluator.ReplExecute(parser.Parse()))
 		printRepl()
 	}

@@ -4,6 +4,10 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+
+	. "github.com/BEN00262/simpleLang/evaluator"
+	. "github.com/BEN00262/simpleLang/lexer"
+	. "github.com/BEN00262/simpleLang/parser"
 )
 
 var (
@@ -23,7 +27,7 @@ func getFileData(filename string) string {
 	return string(data)
 }
 
-func main() {
+func main2() {
 	flag.Parse()
 
 	switch *mode {
@@ -49,7 +53,7 @@ func main() {
 				return
 			}
 
-			literalParser := initLiteralParsing(getFileData(*fileName))
+			literalParser := InitLiteralParsing(getFileData(*fileName))
 
 			switch *operation {
 			case "e":
@@ -73,4 +77,29 @@ func main() {
 
 		}
 	}
+}
+
+func main() {
+	// experiment with calling function from Daisy
+
+	evaluator := NewEvaluatorContext()
+
+	// inject all global functions
+	evaluator.InitGlobalScope()
+
+	LoadGlobalsToContext(evaluator)
+
+	lexer := InitLexer(`
+	fun printName(first, second) {
+		return first + second
+	}
+	`)
+	parser := InitParser(lexer.Lex())
+	evaluator.ReplExecute(parser.Parse())
+
+	value := DaisyInvoke(evaluator, "printName", ToDaisy(400), ToDaisy(23))
+
+	fmt.Println(FromDaisy(value))
+
+	evaluator.TearDownRepl()
 }

@@ -1,7 +1,12 @@
-package main
+package lexer
 
 var (
-	KEYWORDS = []string{FUNC, TRUE, FALSE, FOR, IF, ELSE, BREAK, RETURN}
+	KEYWORDS = []string{
+		FUNC, TRUE,
+		FALSE, FOR, IF, ELSE,
+		BREAK, RETURN, NIL, MODULE,
+		IMPORT, AS, EXPORT, DEF,
+	}
 )
 
 type TokenType = int
@@ -19,6 +24,9 @@ const (
 	COMMA                         //10
 	SEMI_COLON                    // 11
 	CONDITION                     //12
+	SQUARE_BRACKET                //13
+	COLON                         //14
+	DOT                           //15
 )
 
 type Token struct {

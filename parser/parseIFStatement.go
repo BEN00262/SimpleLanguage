@@ -1,4 +1,8 @@
-package main
+package parser
+
+import (
+	. "github.com/BEN00262/simpleLang/lexer"
+)
 
 func (parser *Parser) ParseIfStatement() interface{} {
 	// expect the 'if' keyword
@@ -16,7 +20,7 @@ func (parser *Parser) ParseIfStatement() interface{} {
 		"Expected a '{'",
 	)
 
-	thenBody := parser._parseElseStatement()
+	thenBody := parser._parseForLoop()
 
 	var elseBodies []interface{}
 
@@ -25,7 +29,7 @@ func (parser *Parser) ParseIfStatement() interface{} {
 		parser.CurrentToken(),
 		CURLY_BRACES, "}",
 		"Expected a '}'",
-	)
+	) // we only eat upto what we think is right
 
 	if IsTypeAndValue(parser.CurrentToken(), KEYWORD, ELSE) {
 		// eat the else keyword
@@ -41,7 +45,7 @@ func (parser *Parser) ParseIfStatement() interface{} {
 			)
 
 			elseBodies = append(elseBodies, BlockNode{
-				Code: parser._parseElseStatement(),
+				Code: parser._parseForLoop(),
 			})
 
 			parser.IsExpectedEatElsePanic(
@@ -58,17 +62,4 @@ func (parser *Parser) ParseIfStatement() interface{} {
 		ThenBody:  thenBody,
 		ElseBody:  elseBodies,
 	}
-}
-
-// can be also an expression
-func (parser *Parser) _parseElseStatement() (statements []interface{}) {
-	_currentToken := parser.CurrentToken()
-
-	for !IsTypeAndValue(_currentToken, CURLY_BRACES, "}") {
-		// loop
-		statements = append(statements, parser._parse(_currentToken))
-		_currentToken = parser.CurrentToken()
-	}
-
-	return
 }

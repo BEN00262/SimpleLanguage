@@ -1,7 +1,9 @@
-package main
+package parser
 
 import (
 	"strings"
+
+	. "github.com/BEN00262/simpleLang/lexer"
 )
 
 type ParsingState = int
@@ -20,7 +22,7 @@ type Parser struct {
 	TokensLength    int
 }
 
-func initParser(tokens []Token) *Parser {
+func InitParser(tokens []Token) *Parser {
 	return &Parser{
 		Tokens:          tokens,
 		CurrentPosition: 0,
@@ -163,6 +165,35 @@ func (parser *Parser) _parseFactor() interface{} {
 		return NumberNode{
 			Value: _currentToken.Value.(int),
 		}
+
+		// parse an array here and then return its type and stuff
+		// we have a shit stuff here boys
+	} else if IsTypeAndValue(_currentToken, SQUARE_BRACKET, "[") {
+		// start parsing the array here
+		// consume the first square bracke
+		parser.eatToken() // eat the [
+
+		var _elements_ []interface{}
+
+		for parser.CurrentPosition < parser.TokensLength && !IsTypeAndValue(parser.CurrentToken(), SQUARE_BRACKET, "]") {
+			_elements_ = append(_elements_, parser._parseExpression())
+
+			if parser.CurrentToken().Type == COMMA {
+				parser.eatToken()
+			}
+		}
+
+		// final we expect a closing bracket
+		// eat ]
+		parser.IsExpectedEatElsePanic(
+			parser.CurrentToken(),
+			SQUARE_BRACKET, "]",
+			"Expected ']'",
+		)
+
+		return ArrayNode{
+			Elements: _elements_,
+		}
 	} else if _currentToken.Type == STRING {
 		parser.eatToken()
 
@@ -184,9 +215,13 @@ func (parser *Parser) _parseFactor() interface{} {
 			}
 		}
 
+		if _currentToken.Value == NIL {
+			return NilNode{}
+		}
+
 	} else if _currentToken.Type == VARIABLE {
 		if IsTypeAndValue(parser.peekAhead(), HALF_CIRCLE_BRACKET, "(") {
-			parser.eatToken() // function name
+			parser.eatToken()
 			parser.eatToken() // the first (
 
 			_array_of_args := parser._parseFunctionArgs()
@@ -203,10 +238,44 @@ func (parser *Parser) _parseFactor() interface{} {
 				Args:     _array_of_args,
 			}
 
+		} else if IsTypeAndValue(parser.peekAhead(), SQUARE_BRACKET, "[") {
+			// also check if the next token is a square bracket if so this is an array access thing
+			parser.eatToken()
+			parser.eatToken()
+
+			// parse the expression here
+			_accessor_type_ := NORMAL
+			var _end_index_expression_ interface{}
+			_array_index_expression_ := parser._parseExpression()
+
+			// check if the current token is a :
+
+			// if so eat it and do shit
+			if IsTypeAndValue(parser.CurrentToken(), COLON, ":") {
+				parser.eatToken()
+
+				// we should check for errors later
+
+				_end_index_expression_ = parser._parseExpression()
+				_accessor_type_ = RANGE
+			}
+
+			parser.IsExpectedEatElsePanic(
+				parser.CurrentToken(),
+				SQUARE_BRACKET, "]",
+				"Expected a closing ']'",
+			)
+
+			return ArrayAccessorNode{
+				Array:    _currentToken.Value.(string),
+				Index:    _array_index_expression_,
+				Type:     _accessor_type_,
+				EndIndex: _end_index_expression_,
+			}
 		}
 
-		// eat its own shit
 		parser.eatToken()
+
 		return VariableNode{
 			Value: _currentToken.Value.(string),
 		}
@@ -287,7 +356,7 @@ func (parser *Parser) _parseInnerComparison() interface{} {
 	}
 
 	return ExpressionNode{
-		expression: term,
+		Expression: term,
 	}
 }
 
@@ -322,8 +391,6 @@ func (parser *Parser) _parse(token Token) interface{} {
 				}
 			case FOR:
 				{
-					// parser.eatToken()
-
 					parser.pushToParsingState(LOOP_STATE)
 					_for_node_ := parser.ParseForLoop()
 					parser.popFromParsingState()
@@ -332,7 +399,6 @@ func (parser *Parser) _parse(token Token) interface{} {
 				}
 			case IF:
 				{
-					// this parses an if statment
 					return parser.ParseIfStatement()
 				}
 			case BREAK:
@@ -353,10 +419,47 @@ func (parser *Parser) _parse(token Token) interface{} {
 					}
 
 					parser.eatToken()
+
 					_expression := parser._parseExpression()
 
 					return ReturnNode{
 						Expression: _expression,
+					}
+				}
+			case DEF:
+				{
+					parser.eatToken() // eat the def keyword
+
+					lvalue := parser.CurrentToken().Value.(string)
+
+					parser.eatToken() // eat the variable name
+
+					parser.IsExpectedEatElsePanic(
+						parser.CurrentToken(),
+						ASSIGN, "=",
+						"Expected '='",
+					)
+
+					rvalue := parser.ParseAssignment()
+
+					return Assignment{
+						Type:   ASSIGNMENT,
+						Lvalue: lvalue,
+						Rvalue: rvalue,
+					}
+				}
+			case MODULE:
+				{
+					// we dont eat anything we just forward it
+					return parser.ParseModule()
+				}
+			case IMPORT:
+				{
+					parser.eatToken()
+					fileName := parser.CurrentToken()
+					parser.eatToken()
+					return Import{
+						FileName: fileName.Value.(string),
 					}
 				}
 			default:
@@ -371,19 +474,10 @@ func (parser *Parser) _parse(token Token) interface{} {
 				parser.eatToken() // eat the variable
 				parser.eatToken() // eat the assignment operator
 
-				var lvalue interface{}
-
-				// this is not right at all
-				// the functions should be an expression
-				if IsTypeAndValue(parser.CurrentToken(), KEYWORD, FUNC) {
-					// parsing anonymous functions
-					lvalue = parser.ParseFunction()
-				} else {
-					// expressions
-					lvalue = parser._parseExpression()
-				}
+				lvalue := parser.ParseAssignment()
 
 				return Assignment{
+					Type:   REASSIGNMENT,
 					Lvalue: token.Value.(string),
 					Rvalue: lvalue,
 				}

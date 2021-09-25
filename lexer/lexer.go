@@ -1,4 +1,4 @@
-package main
+package lexer
 
 import (
 	"strconv"
@@ -21,7 +21,7 @@ type Lexer struct {
 	currentPosition int
 }
 
-func initLexer(code string) *Lexer {
+func InitLexer(code string) *Lexer {
 	return &Lexer{
 		code:            code,
 		currentPosition: 0,
@@ -167,6 +167,24 @@ func (lexer *Lexer) Lex() []Token {
 			tokens = append(tokens, Token{
 				Type:  OPERATOR,
 				Value: string(lexeme),
+			})
+		} else if lexeme == ':' {
+			// return the lexeme
+			tokens = append(tokens, Token{
+				Type:  COLON,
+				Value: ":",
+			})
+		} else if strings.Contains("[]", string(lexeme)) {
+			// return the token now
+			tokens = append(tokens, Token{
+				Type:  SQUARE_BRACKET,
+				Value: string(lexeme),
+			})
+		} else if lexeme == ',' {
+			// add the comma tokens for this very reason
+			tokens = append(tokens, Token{
+				Type:  COMMA,
+				Value: ",",
 			})
 		} else if lexeme == '#' {
 			lexer.eatLexeme()

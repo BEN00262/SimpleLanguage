@@ -1,4 +1,4 @@
-package main
+package lexer
 
 const (
 	FUNC   = "fun"
@@ -9,4 +9,10 @@ const (
 	ELSE   = "else"
 	BREAK  = "break"
 	RETURN = "return"
+	NIL    = "nil"
+	MODULE = "module"
+	IMPORT = "import"
+	AS     = "as"
+	EXPORT = "export"
+	DEF    = "def" // used to define shit
 )

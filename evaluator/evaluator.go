@@ -1,9 +1,12 @@
-package main
+package evaluator
 
 import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	. "github.com/BEN00262/simpleLang/parser"
+	symTable "github.com/BEN00262/simpleLang/symbolstable"
 )
 
 type SymbolTableValueType = int
@@ -11,6 +14,7 @@ type SymbolTableValueType = int
 const (
 	FUNCTION SymbolTableValueType = iota + 1
 	VALUE
+	ARRAY
 	EXTERNALFUNC // called to the external runtime
 	EXTVALUE
 )
@@ -20,27 +24,32 @@ type SymbolTableValue struct {
 	Value interface{}
 }
 
-type ExternalFunction = func(value ...interface{}) interface{}
+// create a runtime (used for other things, like creating standalone binaries :))
+// use the language to mask away malware
+// actually write my first ransomware using this language
+
+// file access ( file_open ) --> returns a string node --> then we can call all the other shit on this
+// what are we doing here we need to work with pointers to the values
 
 type Evaluator struct {
 	program      *ProgramNode
-	symbolsTable *SymbolsTable
+	symbolsTable *symTable.SymbolsTable
 }
 
 func initEvaluator(program *ProgramNode) *Evaluator {
 	return &Evaluator{
 		program:      program,
-		symbolsTable: initSymbolsTable(),
+		symbolsTable: symTable.InitSymbolsTable(),
 	}
 }
 
 // create a method to be used by the REPL
 func NewEvaluatorContext() *Evaluator {
 	eval := &Evaluator{
-		symbolsTable: initSymbolsTable(),
+		symbolsTable: symTable.InitSymbolsTable(),
 	}
 
-	eval.symbolsTable.pushContext()
+	eval.symbolsTable.PushContext()
 
 	return eval
 }
@@ -51,7 +60,7 @@ func (eval *Evaluator) ReplExecute(program *ProgramNode) interface{} {
 }
 
 func (eval *Evaluator) TearDownRepl() {
-	eval.symbolsTable.popContext()
+	eval.symbolsTable.PopContext()
 }
 
 func (eval *Evaluator) executeFunctionCode(code []interface{}) interface{} {
@@ -68,7 +77,6 @@ func (eval *Evaluator) executeFunctionCode(code []interface{}) interface{} {
 		switch _val := returnValue.(type) {
 		case ReturnNode:
 			{
-				// return the stuff almost immediately
 				return _val.Expression
 			}
 		}
@@ -130,17 +138,15 @@ func (eval *Evaluator) _stringInterpolate(stringNode StringNode) StringNode {
 		if stringBlock != nil {
 			_interpolated_string_ := ""
 			// fetch the interpolator from the current context
-			value, _ := eval.symbolsTable.getFromContext(stringBlock[1])
+			// we should actually evaluate it as an expression --> its gonna be slow AF
+			// if u use it in a loop fuck u
 
-			_value_ := value.(SymbolTableValue)
+			// evaluate the value and get the results
+			// value, _ := eval.symbolsTable.GetFromContext(stringBlock[1])
 
-			// ensure  the value is an actual value
-			// if (_value_.Type != VALUE || _value_.Type != EXTVALUE) {
-			// 	// raise an issue here
-			// 	continue
-			// }
+			_value_ := eval._eval(stringBlock[1])
 
-			switch _value := _value_.Value.(type) {
+			switch _value := _value_.(type) {
 			case NumberNode:
 				{
 					// do the work and change the values
@@ -164,33 +170,68 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 	switch _node := node.(type) {
 	case VariableNode:
 		{
-			_value, err := eval.symbolsTable.getFromContext(_node.Value)
+			_value, err := eval.symbolsTable.GetFromContext(_node.Value)
 
 			if err != nil {
 				return nil, err
 			}
 
-			_parsedValue := _value.(SymbolTableValue)
+			_parsedValue := (*_value).(SymbolTableValue)
 
 			return _parsedValue.Value, nil
 		}
+	case ArrayNode:
+		{
+			// handle the array node shit
+			// return stuff here
+			// also implement a type check for arrays in the symbols table
+			var _array_elements_ []interface{}
+
+			for _, _element_ := range _node.Elements {
+				_element, err := eval.walkTree(_element_)
+
+				if err != nil {
+					return nil, err
+				}
+
+				_array_elements_ = append(_array_elements_, _element)
+			}
+
+			return ArrayNode{
+				Elements: _array_elements_,
+			}, nil
+		}
 	case IFNode:
 		{
-			eval.symbolsTable.pushContext()
+			eval.symbolsTable.PushContext()
+			defer eval.symbolsTable.PopContext()
 
 			_condition, _ := eval.walkTree(_node.Condition)
 
 			_bool_condition := _condition.(BoolNode)
 
 			if _bool_condition.Value == 1 {
+				for _, _code := range _node.ThenBody {
+					res, err := eval.walkTree(_code)
 
-				res, err := eval.walkTree(_node.ThenBody)
+					if err != nil {
+						return nil, err
+					}
 
-				if err != nil {
-					return nil, err
+					// check for the return type
+					switch _node_ := res.(type) {
+					case BreakNode:
+						{
+							return BreakNode{}, nil
+						}
+					case ReturnNode:
+						{
+							return _node_, nil
+						}
+					}
 				}
 
-				return res, nil
+				return nil, nil
 			} else {
 				// we could have thrown an error in other languages but we cant here fuck
 				for _, _code := range _node.ElseBody {
@@ -215,24 +256,50 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 				}
 			}
 
-			eval.symbolsTable.popContext()
 			return nil, nil
 		}
 	case BlockNode:
 		{
-			eval.symbolsTable.pushContext()
+			eval.symbolsTable.PushContext()
+			defer eval.symbolsTable.PopContext()
+
 			for _, _code := range _node.Code {
-				eval.walkTree(_code)
+				// we can throw errors in golang
+				ret, err := eval.walkTree(_code)
+
+				if err != nil {
+					return nil, err
+				}
+
+				// ensure the return is not a break node or return node if so just return a nil
+				switch _node := ret.(type) {
+				case ReturnNode:
+					{
+						return ReturnNode{
+							Expression: _node.Expression,
+						}, nil
+					}
+				case BreakNode:
+					{
+						return BreakNode{}, nil
+					}
+				default:
+					{
+						return nil, nil
+					}
+				}
 			}
-			eval.symbolsTable.popContext()
 		}
 	case BreakNode:
 		{
 			return _node, nil
 		}
+	case NilNode:
+		{
+			return _node, nil
+		}
 	case ReturnNode:
 		{
-			// evaluate first the expressions then return the results
 			_ret, err := eval.walkTree(_node.Expression)
 
 			if err != nil {
@@ -244,7 +311,8 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 	case ForNode:
 		{
 			// evaluate a for node
-			eval.symbolsTable.pushContext()
+			eval.symbolsTable.PushContext()
+			defer eval.symbolsTable.PopContext()
 
 			// do our thing
 			switch _node.Type {
@@ -263,10 +331,14 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 							}
 
 							// if the token is a break statement just exit the execution
-							switch retToken.(type) {
+							switch _node_ := retToken.(type) {
 							case BreakNode:
 								{
 									isExecuting = false
+								}
+							case ReturnNode:
+								{
+									return _node_, nil
 								}
 							}
 						}
@@ -309,10 +381,14 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 							}
 
 							// if the token is a break statement just exit the execution
-							switch retToken.(type) {
+							switch _node_ := retToken.(type) {
 							case BreakNode:
 								{
 									isExecuting = false
+								}
+							case ReturnNode:
+								{
+									return _node_, nil
 								}
 							}
 						}
@@ -325,7 +401,7 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 
 						_increment_return_value := _increment_return_value_.(NumberNode)
 
-						eval.symbolsTable.pushToContext(_initialization.Lvalue, SymbolTableValue{
+						eval.symbolsTable.PushToContext(_initialization.Lvalue, SymbolTableValue{
 							Type: VALUE,
 							Value: NumberNode{
 								Value: _increment_return_value.Value,
@@ -373,10 +449,14 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 							}
 
 							// if the token is a break statement just exit the execution
-							switch retToken.(type) {
+							switch _node_ := retToken.(type) {
 							case BreakNode:
 								{
 									isExecuting = false
+								}
+							case ReturnNode:
+								{
+									return _node_, nil
 								}
 							}
 						}
@@ -394,7 +474,6 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 				}
 			}
 
-			eval.symbolsTable.popContext()
 			return nil, nil
 		}
 	case StringNode:
@@ -405,7 +484,8 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 	case IIFENode:
 		{
 			// we just call the anonymous function and parse the args
-			eval.symbolsTable.pushContext()
+			eval.symbolsTable.PushContext()
+			defer eval.symbolsTable.PopContext()
 
 			_function_decl_ := _node.Function
 
@@ -414,10 +494,7 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 				return nil, fmt.Errorf("IIFE function expected %d args but only %d args given", _function_decl_.ParamCount, _node.ArgCount)
 			}
 
-			returnValue := eval.executeFunctionCode(_function_decl_.Code)
-
-			eval.symbolsTable.popContext()
-			return returnValue, nil
+			return eval.executeFunctionCode(_function_decl_.Code), nil
 		}
 	case NumberNode:
 		{
@@ -425,7 +502,7 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 		}
 	case ExpressionNode:
 		{
-			return eval.walkTree(_node.expression)
+			return eval.walkTree(_node.Expression)
 		}
 	case BinaryNode:
 		{
@@ -443,6 +520,8 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 			if err != nil {
 				panic(err.Error())
 			}
+
+			// additions allowed --> string + number / number + string / number + number
 
 			// now we just do the math
 			switch _lhs := lhs.(type) {
@@ -491,11 +570,11 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 				}
 			}
 
-			panic(fmt.Errorf("Inavlid operation %#v", _node))
+			panic(fmt.Errorf("Invalid operation %#v", _node))
 		}
 	case FunctionDecl:
 		{
-			eval.symbolsTable.pushToContext(_node.Name, SymbolTableValue{
+			eval.symbolsTable.PushToContext(_node.Name, SymbolTableValue{
 				Type:  FUNCTION,
 				Value: _node,
 			})
@@ -506,14 +585,14 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 		}
 	case FunctionCall:
 		{
-			function, err := eval.symbolsTable.getFromContext(_node.Name)
+			function, err := eval.symbolsTable.GetFromContext(_node.Name)
 
 			if err != nil {
 				return nil, err
 			}
 
 			// check if the value found is a function if not throw an error
-			_function := function.(SymbolTableValue)
+			_function := (*function).(SymbolTableValue)
 
 			if _function.Type != FUNCTION || _function.Type != EXTERNALFUNC {
 				// throw an error here
@@ -532,9 +611,10 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 				}
 
 				// evaluate each argument --> i think
-				var _args []interface{}
+				var _args []*interface{}
 
 				// get out the execution of the code when the return occurs
+				// we evaluate the args -->
 
 				for _, _myArg := range _node.Args {
 					_val, err := eval.walkTree(_myArg)
@@ -549,20 +629,20 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 						{
 							// we break out of the function execution with the given thing
 							// print this value
-							fmt.Println(_val)
+							// fmt.Println(_val)
 							return _val_.Expression, nil
 						}
 					}
 
-					_args = append(_args, _val)
+					_args = append(_args, &_val)
 				}
 
-				_function_decl_.Function(_args...)
-				return nil, nil
+				return _function_decl_.Function(_args...), nil
 			}
 
 			var returnValue interface{}
-			eval.symbolsTable.pushContext()
+			eval.symbolsTable.PushContext()
+			defer eval.symbolsTable.PopContext()
 
 			switch _function_decl_ := _function.Value.(type) {
 			case FunctionDecl:
@@ -574,6 +654,7 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 					// push the function args into the current scope
 					for _, Param := range _function_decl_.Params {
 						// find the _args and push them into the current
+						// if we walk we find the values
 						res, err := eval.walkTree(_node.Args[Param.Position])
 
 						if err != nil {
@@ -587,9 +668,13 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 							{
 								valueType = FUNCTION
 							}
+						case ArrayNode:
+							{
+								valueType = ARRAY
+							}
 						}
 
-						eval.symbolsTable.pushToContext(Param.Key, SymbolTableValue{
+						eval.symbolsTable.PushToContext(Param.Key, SymbolTableValue{
 							Type:  valueType,
 							Value: res,
 						})
@@ -607,7 +692,7 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 					returnValue = eval.executeFunctionCode(_function_decl_.Code)
 				}
 			}
-			eval.symbolsTable.popContext()
+
 			return returnValue, nil
 		}
 	case BoolNode:
@@ -617,6 +702,53 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 	case CommentNode:
 		{
 			return _node, nil
+		}
+	case ArrayAccessorNode:
+		{
+			_index_of_element_, err := eval.walkTree(_node.Index)
+
+			if err != nil {
+				return nil, err
+			}
+
+			// we should also check the type of the stuff
+
+			if _index_, ok := _index_of_element_.(NumberNode); ok {
+				_array_, err := eval.symbolsTable.GetFromContext(_node.Array)
+
+				if err != nil {
+					return nil, err
+				}
+
+				_array_symbols_table_ := (*_array_).(SymbolTableValue)
+
+				if _implemented, ok := _array_symbols_table_.Value.(Getter); ok {
+
+					switch _node.Type {
+					case NORMAL:
+						{
+							return _implemented.Get(_index_.Value), nil
+						}
+					case RANGE:
+						{
+							_end_index_, err := eval.walkTree(_node.EndIndex)
+
+							if err != nil {
+								return nil, fmt.Errorf("The end expression failed to evaluate")
+							}
+
+							if _eIndex_, ok := _end_index_.(NumberNode); ok {
+								return _implemented.Range(_index_.Value, _eIndex_.Value), nil
+							}
+						}
+					}
+				}
+
+				return nil, fmt.Errorf("Failed to fetch element at the given index")
+			}
+
+			// ensure the _index_of_element is a number node else return an error node
+			return nil, fmt.Errorf("Given index expression does not evaluate to a number")
 		}
 	case Assignment:
 		{
@@ -628,12 +760,32 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 				{
 					_type = FUNCTION
 				}
+			case ArrayNode:
+				{
+					_type = ARRAY
+				}
 			}
 
-			eval.symbolsTable.pushToContext(_node.Lvalue, SymbolTableValue{
-				Type:  _type,
-				Value: _value,
-			})
+			switch _node.Type {
+			case ASSIGNMENT:
+				{
+					eval.symbolsTable.PushToContext(_node.Lvalue, SymbolTableValue{
+						Type:  _type,
+						Value: _value,
+					})
+				}
+			case REASSIGNMENT:
+				{
+					eval.symbolsTable.PushToParentContext(_node.Lvalue, SymbolTableValue{
+						Type:  _type,
+						Value: _value,
+					})
+				}
+			}
+		}
+	case Import:
+		{
+			eval.loadModule(_node.FileName)
 		}
 	case ConditionNode:
 		{
@@ -664,6 +816,10 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 				{
 					return Compare(&_lhs_, _node.Operator, _rhs), nil
 				}
+			case NilNode:
+				{
+					return Compare(&_lhs_, _node.Operator, _rhs), nil
+				}
 			default:
 				return nil, fmt.Errorf("%#v does not implement the Comparison interface", _lhs_)
 			}
@@ -680,11 +836,11 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 
 // think about this very hard
 func (eval *Evaluator) InitGlobalScope() {
-	eval.symbolsTable.pushContext()
+	eval.symbolsTable.PushContext()
 }
 
 func (eval *Evaluator) InjectIntoGlobalScope(key string, value interface{}) {
-	eval.symbolsTable.pushToContext(key, value)
+	eval.symbolsTable.PushToContext(key, value)
 
 }
 
@@ -707,7 +863,7 @@ func (eval *Evaluator) Evaluate() interface{} {
 	var ret interface{}
 	var err error
 
-	eval.symbolsTable.pushContext()
+	eval.symbolsTable.PushContext()
 
 	for _, node := range eval.program.Nodes {
 		ret, err = eval.walkTree(node)
@@ -717,6 +873,6 @@ func (eval *Evaluator) Evaluate() interface{} {
 		}
 	}
 
-	eval.symbolsTable.popContext()
+	eval.symbolsTable.PopContext()
 	return ret
 }

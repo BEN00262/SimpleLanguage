@@ -1,6 +1,10 @@
-package main
+package parser
 
-import "fmt"
+import (
+	"fmt"
+
+	. "github.com/BEN00262/simpleLang/lexer"
+)
 
 func IsTypeAndValue(token Token, expectedType TokenType, value string) bool {
 	return token.Type == expectedType && token.Value.(string) == value

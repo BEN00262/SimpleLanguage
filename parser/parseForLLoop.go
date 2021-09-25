@@ -1,28 +1,23 @@
-package main
+package parser
 
-import "fmt"
+import (
+	"fmt"
+
+	. "github.com/BEN00262/simpleLang/lexer"
+)
 
 func (parser *Parser) _parseForLoop() []interface{} {
 	var _whileBody []interface{}
-	_currentToken := parser.CurrentToken() // we start with the actual thing
+	_currentToken := parser.CurrentToken()
 
-	for ; parser.CurrentPosition < parser.TokensLength && !IsTypeAndValue(_currentToken, CURLY_BRACES, "}"); parser.CurrentPosition++ {
-		_parsed_ := parser._parse(_currentToken)
+	// get the current Token --> proceed --> the problem starts with the expressions
 
-		fmt.Println("After parsing")
-		fmt.Println(_parsed_)
-		fmt.Println(parser.CurrentToken())
-
-		_whileBody = append(_whileBody, _parsed_)
+	for parser.CurrentPosition < parser.TokensLength && !IsTypeAndValue(_currentToken, CURLY_BRACES, "}") {
+		_whileBody = append(_whileBody, parser._parse(_currentToken))
 		_currentToken = parser.CurrentToken()
-
-		fmt.Println("Current tokens being worked on")
-		fmt.Println(_currentToken)
-		fmt.Println(parser.peekAhead())
 	}
 
-	parser.CurrentPosition -= 1 // one for the while loop and the other increment for the shit in parseExpression
-
+	// parser.CurrentPosition -= 1 // one for the while loop and the other increment for the shit in parseExpression
 	return _whileBody
 }
 
@@ -51,7 +46,6 @@ func (parser *Parser) parseWhileLoop() interface{} {
 
 func (parser *Parser) ParseForLoop() interface{} {
 	// eat the for after asserting it presence
-	fmt.Println("Tuko hapa")
 	parser.IsExpectedEatElsePanic(
 		parser.CurrentToken(),
 		KEYWORD, FOR,
@@ -74,9 +68,7 @@ func (parser *Parser) ParseForLoop() interface{} {
 
 	// check if there is an eassignment thing if not assume its a conditional while loop
 
-	_lookAheadToken := parser.peekAhead()
-
-	if IsTypeAndValue(_lookAheadToken, ASSIGN, "=") {
+	if IsTypeAndValue(parser.CurrentToken(), KEYWORD, "def") {
 		initialization := parser._parse(parser.CurrentToken())
 
 		// expect ;
