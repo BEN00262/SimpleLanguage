@@ -89,6 +89,32 @@ var (
 	INTERPOLATION = regexp.MustCompile(`{((\s*?.*?)*?)}`)
 )
 
+// return something
+func doArithmetic(left ArthOp, operator string, right interface{}) interface{} {
+	switch operator {
+	case "+":
+		{
+			return left.Add(right)
+		}
+	case "-":
+		{
+			return left.Sub(right)
+		}
+	case "*":
+		{
+			return left.Mul(right)
+		}
+	case "%":
+		{
+			return left.Mod(right)
+		}
+	}
+
+	return NilNode{}
+}
+
+// simply pass the error down the line
+// until we find an error handler that handles it
 func Compare(comp Comparison, op string, rhs interface{}) BoolNode {
 	switch op {
 	case "==":
@@ -180,6 +206,19 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 
 			return _parsedValue.Value, nil
 		}
+	case TryCatchNode:
+		{
+			// evaluate the try catch stuff
+			// find a way to throw errors
+			// this errors will be used then
+			// if we get an exception node just pass it down the line
+			return eval.evaluateTryCatchFinally(_node)
+		}
+	case RaiseExceptionNode:
+		{
+			// we just return the exeption
+			return eval.walkTree(_node.Exception)
+		}
 	case ArrayNode:
 		{
 			// handle the array node shit
@@ -193,6 +232,17 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 				if err != nil {
 					return nil, err
 				}
+
+				switch _element.(type) {
+				case ExceptionNode:
+					{
+						// quit the execution and pass the execption node
+						return _element, nil
+					}
+				}
+
+				// we need to check if the element is of type exeception if it is cease the execution and find a catch
+				// pass the error back until we reach a handler and if not just throw and exception
 
 				_array_elements_ = append(_array_elements_, _element)
 			}
@@ -225,6 +275,10 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 							return BreakNode{}, nil
 						}
 					case ReturnNode:
+						{
+							return _node_, nil
+						}
+					case ExceptionNode:
 						{
 							return _node_, nil
 						}
@@ -522,58 +576,18 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 			}
 
 			// additions allowed --> string + number / number + string / number + number
+			// we just pass them to the interface stuff
 
-			// now we just do the math
+			// return doArithmetic(lhs, _node.Operator, rhs)
+
 			switch _lhs := lhs.(type) {
 			case NumberNode:
 				{
-					// also check the rhs
-					switch _rhs := rhs.(type) {
-					case NumberNode:
-						{
-							// check the operator
-							// find a way to inject the operators
-							switch _node.Operator {
-							case "+":
-								{
-									return NumberNode{
-										Value: _lhs.Value + _rhs.Value,
-									}, nil
-								}
-							case "-":
-								{
-									return NumberNode{
-										Value: _lhs.Value - _rhs.Value,
-									}, nil
-								}
-							case "*":
-								{
-									return NumberNode{
-										Value: _lhs.Value * _rhs.Value,
-									}, nil
-								}
-
-							case "%":
-								{
-									return NumberNode{
-										Value: _lhs.Value % _rhs.Value,
-									}, nil
-								}
-
-							case "/":
-								{
-									return NumberNode{
-										Value: _lhs.Value / _rhs.Value,
-									}, nil
-								}
-							}
-						}
-					}
+					return doArithmetic(&_lhs, _node.Operator, rhs), nil
 				}
-			default:
+			case StringNode:
 				{
-					fmt.Println("This is the lhs")
-					fmt.Println(_lhs)
+					return doArithmetic(&_lhs, _node.Operator, rhs), nil
 				}
 			}
 
@@ -877,6 +891,14 @@ func (eval *Evaluator) Evaluate() interface{} {
 
 		if err != nil {
 			panic(err.Error())
+		}
+
+		switch _ret := ret.(type) {
+		case ExceptionNode:
+			{
+				fmt.Printf("[ %s ] %s\n\n", _ret.Type, _ret.Message)
+				return nil
+			}
 		}
 	}
 

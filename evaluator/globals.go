@@ -155,6 +155,63 @@ var (
 				},
 			},
 		},
+
+		// type introspection
+		"type": SymbolTableValue{
+			Type: EXTERNALFUNC,
+			Value: ExternalFunctionNode{
+				Name:       "type",
+				ParamCount: 1,
+				Function: func(value ...*interface{}) interface{} {
+					// only take the first value the rest we dont need
+					_argument := *value[0]
+					_type := "nil"
+
+					switch _val := _argument.(type) {
+					case StringNode:
+						_type = "string"
+					case NumberNode:
+						_type = "number"
+					case BoolNode:
+						_type = "boolean"
+					case ExceptionNode:
+						// we should have an exception type
+						// should we return the actual type in the execption
+						_type = _val.Type
+					}
+
+					return StringNode{
+						Value: _type,
+					}
+				},
+			},
+		},
+
+		// Exception creator
+		"Exception": SymbolTableValue{
+			Type: EXTERNALFUNC,
+			Value: ExternalFunctionNode{
+				Name:       "Exception",
+				ParamCount: 2,
+				Function: func(value ...*interface{}) interface{} {
+					if _type, ok := (*value[0]).(StringNode); ok {
+						if _message, ok := (*value[1]).(StringNode); ok {
+							return ExceptionNode{
+								Type:    _type.Value,
+								Message: _message.Value,
+							}
+						}
+					}
+
+					return ExceptionNode{
+						Type:    "InvalidException",
+						Message: "Invalid exception thrown",
+					}
+				},
+			},
+		},
+
+		// print
 		"print": SymbolTableValue{
 			Type: EXTERNALFUNC,
 			Value: ExternalFunctionNode{

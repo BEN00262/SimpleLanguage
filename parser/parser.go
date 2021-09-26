@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"strings"
 
 	. "github.com/BEN00262/simpleLang/lexer"
@@ -11,6 +12,7 @@ type ParsingState = int
 const (
 	FUNCTION_STATE ParsingState = iota
 	LOOP_STATE
+	TRY_CATCH_STATE
 	INVALID_STATE // used when we are not in a function or a loop
 )
 
@@ -390,6 +392,11 @@ func (parser *Parser) _parse(token Token) interface{} {
 				{
 					return parser.ParseFunction()
 				}
+			case TRY:
+				{
+					// work with a try catch block
+					return parser.parseTryCatchBlock()
+				}
 			case FOR:
 				{
 					parser.pushToParsingState(LOOP_STATE)
@@ -401,6 +408,16 @@ func (parser *Parser) _parse(token Token) interface{} {
 			case IF:
 				{
 					return parser.ParseIfStatement()
+				}
+			case RAISE:
+				{
+					parser.IsExpectedEatElsePanic(
+						parser.CurrentToken(),
+						KEYWORD, RAISE,
+						fmt.Sprintf("Expected a raise statement got %#v", parser.CurrentToken().Value),
+					)
+
+					return RaiseExceptionNode{Exception: parser._parseExpression()}
 				}
 			case BREAK:
 				{

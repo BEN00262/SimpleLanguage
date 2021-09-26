@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -48,6 +49,59 @@ func (module *Module) Get(key string) interface{} {
 type ExpressionNode struct {
 	// this can be anything
 	Expression interface{}
+}
+
+/*
+	type Getter interface {
+		Get(index int) interface{}
+		Range(start int, end int) interface{}
+	}
+*/
+
+type ExceptionNode struct {
+	Type    string
+	Message string
+}
+
+func (exception ExceptionNode) Get(index int) interface{} {
+	// o for the type and 1 for the message
+	if index == 0 {
+		return StringNode{
+			Value: exception.Type,
+		}
+	} else if index == 1 {
+		return StringNode{
+			Value: exception.Message,
+		}
+	}
+
+	// actually return errors here
+	return NilNode{}
+}
+
+func (exception ExceptionNode) Range(start int, end int) interface{} {
+	return NilNode{}
+}
+
+// generate jump the state to somewhere
+// convert the evaluator to state machine
+// on getting something react to it immediately
+type RaiseExceptionNode struct {
+	Exception interface{} // an expression node for now
+}
+
+type CatchBlock struct {
+	// this is the exception var we actually need it
+	Exception string
+	Body      []interface{}
+}
+
+// a try catch node
+// we need a way to inject struff into the catch block
+type TryCatchNode struct {
+	Try     []interface{}
+	Catch   CatchBlock
+	Finally []interface{}
 }
 
 // implements a len thing
@@ -344,11 +398,113 @@ type VariableNode struct {
 	Value string
 }
 
+// Arithmetic operations
+type ArthOp interface {
+	Add(right interface{}) interface{}
+	Sub(right interface{}) interface{}
+	Mod(right interface{}) interface{}
+	Div(right interface{}) interface{}
+	Mul(right interface{}) interface{}
+}
+
 // this implements the Equals interface
 type NumberNode struct {
 	Value int
 }
 
+// implementing arithmetic operations
+func (number *NumberNode) Add(right interface{}) interface{} {
+	// work with interfaces
+	switch _right := right.(type) {
+	case NumberNode:
+		{
+			// just add the numbers
+			return NumberNode{
+				Value: number.Value + _right.Value,
+			}
+		}
+	case StringNode:
+		{
+			// we convert the number to a string then add them together
+			return StringNode{
+				Value: fmt.Sprintf("%d %s", number.Value, _right.Value),
+			}
+		}
+	}
+
+	// we should return an error code here
+	return NilNode{}
+}
+
+// implementing arithmetic operations
+func (number *NumberNode) Sub(right interface{}) interface{} {
+	// work with interfaces
+	switch _right := right.(type) {
+	case NumberNode:
+		{
+			// just add the numbers
+			return NumberNode{
+				Value: number.Value - _right.Value,
+			}
+		}
+	}
+
+	// we should return an error code here
+	return NilNode{}
+}
+
+// implementing arithmetic operations
+func (number *NumberNode) Mod(right interface{}) interface{} {
+	// work with interfaces
+	switch _right := right.(type) {
+	case NumberNode:
+		{
+			// just add the numbers
+			return NumberNode{
+				Value: number.Value % _right.Value,
+			}
+		}
+	}
+
+	// we should return an error code here
+	return NilNode{}
+}
+
+// implementing arithmetic operations
+func (number *NumberNode) Div(right interface{}) interface{} {
+	// work with interfaces
+	switch _right := right.(type) {
+	case NumberNode:
+		{
+			// just add the numbers
+			return NumberNode{
+				Value: number.Value / _right.Value,
+			}
+		}
+	}
+
+	// we should return an error code here
+	return NilNode{}
+}
+
+// implementing arithmetic operations
+func (number *NumberNode) Mul(right interface{}) interface{} {
+	// work with interfaces
+	switch _right := right.(type) {
+	case NumberNode:
+		{
+			// just add the numbers
+			return NumberNode{
+				Value: number.Value * _right.Value,
+			}
+		}
+	}
+
+	// we should return an error code here
+	return NilNode{}
+}
+
+// comperison interface implementation
 func (numberNode *NumberNode) IsEqualTo(value interface{}) BoolNode {
 	switch _rvalue := value.(type) {
 	case NumberNode:
@@ -438,6 +594,51 @@ func (numberNode *NumberNode) IsLessThanOrEqualsTo(value interface{}) BoolNode {
 
 type StringNode struct {
 	Value string
+}
+
+func (stringNode *StringNode) Add(right interface{}) interface{} {
+	switch _right := right.(type) {
+	case NumberNode:
+		{
+			return StringNode{
+				Value: fmt.Sprintf("%s %d", stringNode.Value, _right.Value),
+			}
+		}
+	case StringNode:
+		{
+			return StringNode{
+				Value: fmt.Sprintf("%s%s", stringNode.Value, _right.Value),
+			}
+		}
+	}
+
+	return NilNode{}
+}
+
+func (stringNode *StringNode) Mul(right interface{}) interface{} {
+	switch _right := right.(type) {
+	case NumberNode:
+		{
+			return StringNode{
+				Value: strings.Repeat(stringNode.Value, _right.Value),
+			}
+		}
+	}
+
+	return NilNode{}
+}
+
+// not implemented for the language
+func (stringNode *StringNode) Mod(right interface{}) interface{} {
+	return NilNode{}
+}
+
+func (stringNode *StringNode) Div(right interface{}) interface{} {
+	return NilNode{}
+}
+
+func (stringNode *StringNode) Sub(right interface{}) interface{} {
+	return NilNode{}
 }
 
 // make the string indexeable and countable

@@ -220,6 +220,5 @@ func (lexer *Lexer) Lex() []Token {
 
 		lexer.currentPosition += 1
 	}
-
 	return tokens
 }

@@ -1,0 +1,20 @@
+fun evenFibNumbers(maxNumber) {
+    def a = 0
+    def b = 1
+    def sum = 0
+    def sumOfEvenFibs = 0
+
+    for(def counter = 1; counter < maxNumber; counter + 1) {
+        a = b
+        b = sum
+        sum = a + b
+
+        if sum%2 == 0 {
+            sumOfEvenFibs = sumOfEvenFibs + sum
+        }
+    }
+
+    print(sumOfEvenFibs)
+}
+
+evenFibNumbers(4000000)

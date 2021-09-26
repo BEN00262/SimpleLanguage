@@ -1,0 +1,15 @@
+fun multipleOfThreeAndFive(max) {
+    def totalSummation = 0
+
+    for(def counter = 3; counter < max; counter + 1) {
+        if counter%3 == 0 {
+            totalSummation = totalSummation + counter
+        } else if counter%5 == 0 {
+            totalSummation = totalSummation + counter
+        }
+    }
+
+    print(totalSummation)
+}
+
+multipleOfThreeAndFive(1000)

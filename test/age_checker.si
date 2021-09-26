@@ -1,0 +1,18 @@
+fun sampleFunction(age) {
+    try {
+        if age < 50 {
+            raise Exception("InvalidType", "This is an invalid type")
+        }
+        
+        print("if you see me u aint working right")
+    } catch (error) {
+        if type(error) != "InvalidType" {
+            print(error[1])
+        }
+
+        raise error
+    }
+}
+
+
+sampleFunction(34)
