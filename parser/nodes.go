@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-type ExternalFunction = func(value ...*interface{}) interface{}
+type ExternalFunction = func(value ...*interface{}) (interface{}, ExceptionNode)
 
 type ProgramNode struct {
 	Nodes []interface{}

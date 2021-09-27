@@ -75,7 +75,7 @@ var (
 			Value: ExternalFunctionNode{
 				Name:       "push",
 				ParamCount: 2,
-				Function: func(value ...*interface{}) interface{} {
+				Function: func(value ...*interface{}) (interface{}, ExceptionNode) {
 					_arr_ := *value[0]
 					_value_to_push_ := *value[1]
 
@@ -84,11 +84,11 @@ var (
 						{
 							// does not change the value bana
 							_array_.Push(_value_to_push_)
-							return _array_
+							return _array_, ExceptionNode{Type: NO_EXCEPTION}
 						}
 					}
 
-					return NilNode{}
+					return NilNode{}, ExceptionNode{Type: NO_EXCEPTION}
 				},
 			},
 		},
@@ -97,7 +97,7 @@ var (
 			Value: ExternalFunctionNode{
 				Name:       "pop",
 				ParamCount: 1,
-				Function: func(value ...*interface{}) interface{} {
+				Function: func(value ...*interface{}) (interface{}, ExceptionNode) {
 					_arr_ := *value[0]
 
 					switch _array_ := _arr_.(type) {
@@ -106,10 +106,10 @@ var (
 							// return the value
 							// what we do is just return the array
 							_array_.Pop()
-							return _array_
+							return _array_, ExceptionNode{Type: NO_EXCEPTION}
 						}
 					}
-					return NilNode{}
+					return NilNode{}, ExceptionNode{Type: NO_EXCEPTION}
 				},
 			},
 		},
@@ -118,7 +118,7 @@ var (
 			Value: ExternalFunctionNode{
 				Name:       "insertAt",
 				ParamCount: 3, // array, index, value
-				Function: func(value ...*interface{}) interface{} {
+				Function: func(value ...*interface{}) (interface{}, ExceptionNode) {
 					_arr_ := *value[0]
 					_index_ := *value[1]
 					_value_ := *value[2]
@@ -130,12 +130,12 @@ var (
 							case NumberNode:
 								{
 									_array_.InsertAt(_index.Value, _value_)
-									return _array_
+									return _array_, ExceptionNode{Type: NO_EXCEPTION}
 								}
 							}
 						}
 					}
-					return NilNode{}
+					return NilNode{}, ExceptionNode{Type: NO_EXCEPTION}
 				},
 			},
 		},
@@ -144,14 +144,14 @@ var (
 			Value: ExternalFunctionNode{
 				Name:       "len",
 				ParamCount: 1,
-				Function: func(value ...*interface{}) interface{} {
+				Function: func(value ...*interface{}) (interface{}, ExceptionNode) {
 					_first_argument_ := *value[0]
 
 					if countable, ok := _first_argument_.(Countable); ok {
-						return countable.Length()
+						return countable.Length(), ExceptionNode{Type: NO_EXCEPTION}
 					}
 
-					return NilNode{}
+					return NilNode{}, ExceptionNode{Type: NO_EXCEPTION}
 				},
 			},
 		},
@@ -162,7 +162,7 @@ var (
 			Value: ExternalFunctionNode{
 				Name:       "type",
 				ParamCount: 1,
-				Function: func(value ...*interface{}) interface{} {
+				Function: func(value ...*interface{}) (interface{}, ExceptionNode) {
 					// only take the first value the rest we dont need
 					_argument := *value[0]
 					_type := "nil"
@@ -182,7 +182,7 @@ var (
 
 					return StringNode{
 						Value: _type,
-					}
+					}, ExceptionNode{Type: NO_EXCEPTION}
 				},
 			},
 		},
@@ -193,20 +193,20 @@ var (
 			Value: ExternalFunctionNode{
 				Name:       "Exception",
 				ParamCount: 2,
-				Function: func(value ...*interface{}) interface{} {
+				Function: func(value ...*interface{}) (interface{}, ExceptionNode) {
 					if _type, ok := (*value[0]).(StringNode); ok {
 						if _message, ok := (*value[1]).(StringNode); ok {
 							return ExceptionNode{
 								Type:    _type.Value,
 								Message: _message.Value,
-							}
+							}, ExceptionNode{Type: NO_EXCEPTION}
 						}
 					}
 
 					return ExceptionNode{
 						Type:    "InvalidException",
 						Message: "Invalid exception thrown",
-					}
+					}, ExceptionNode{Type: NO_EXCEPTION}
 				},
 			},
 		},
@@ -217,14 +217,14 @@ var (
 			Value: ExternalFunctionNode{
 				Name:       "print",
 				ParamCount: 1,
-				Function: func(values ...*interface{}) interface{} {
+				Function: func(values ...*interface{}) (interface{}, ExceptionNode) {
 
 					for _, _value_ := range values {
 						fmt.Printf("%s", _print(*_value_))
 					}
 
 					fmt.Println()
-					return NilNode{}
+					return NilNode{}, ExceptionNode{Type: NO_EXCEPTION}
 				},
 			},
 		},
@@ -234,7 +234,7 @@ var (
 			Value: ExternalFunctionNode{
 				Name:       "openFile",
 				ParamCount: 1,
-				Function: func(filename ...*interface{}) interface{} {
+				Function: func(filename ...*interface{}) (interface{}, ExceptionNode) {
 					_filename := *filename[0]
 
 					switch _file_ := _filename.(type) {
@@ -243,15 +243,15 @@ var (
 							fileData, err := ioutil.ReadFile(_file_.Value)
 
 							if err != nil {
-								return NilNode{}
+								return NilNode{}, ExceptionNode{Type: NO_EXCEPTION}
 							}
 
 							return StringNode{
 								Value: string(fileData),
-							}
+							}, ExceptionNode{Type: NO_EXCEPTION}
 						}
 					}
-					return NilNode{}
+					return NilNode{}, ExceptionNode{Type: NO_EXCEPTION}
 				},
 			},
 		},
@@ -261,7 +261,7 @@ var (
 			Value: ExternalFunctionNode{
 				Name:       "walkFS",
 				ParamCount: 1,
-				Function: func(value ...*interface{}) interface{} {
+				Function: func(value ...*interface{}) (interface{}, ExceptionNode) {
 					// start looping over the files and check them out
 					_startDirectory := *value[0]
 					var _files_ []interface{}
@@ -273,7 +273,7 @@ var (
 
 					return ArrayNode{
 						Elements: _files_,
-					}
+					}, ExceptionNode{Type: NO_EXCEPTION}
 				},
 			},
 		},
@@ -284,7 +284,7 @@ var (
 			Value: ExternalFunctionNode{
 				Name:       "writeFile",
 				ParamCount: 2,
-				Function: func(values ...*interface{}) interface{} {
+				Function: func(values ...*interface{}) (interface{}, ExceptionNode) {
 					// on success we return True
 					_file_ := *values[0]
 					_content_ := *values[1]
@@ -301,13 +301,13 @@ var (
 									if err := ioutil.WriteFile(_filename_.Value, []byte(_file_content_.Value), 0600); err != nil {
 										return BoolNode{
 											Value: 0,
-										}
+										}, ExceptionNode{Type: NO_EXCEPTION}
 									}
 
 									// a successful write of the file to the system
 									return BoolNode{
 										Value: 1,
-									}
+									}, ExceptionNode{Type: NO_EXCEPTION}
 								}
 							}
 
@@ -317,7 +317,7 @@ var (
 					// if it fails it returns a false
 					return BoolNode{
 						Value: 0,
-					}
+					}, ExceptionNode{Type: NO_EXCEPTION}
 				},
 			},
 		},
@@ -337,14 +337,14 @@ func LoadGlobalsToContext(eval *Evaluator) {
 		Value: ExternalFunctionNode{
 			Name:       "eval",
 			ParamCount: 1,
-			Function: func(value ...*interface{}) interface{} {
+			Function: func(value ...*interface{}) (interface{}, ExceptionNode) {
 				codeString := *value[0]
 
 				if _code, ok := codeString.(StringNode); ok {
 					return eval._eval(_code.Value)
 				}
 
-				return NilNode{}
+				return NilNode{}, ExceptionNode{Type: NO_EXCEPTION}
 			},
 		},
 	})

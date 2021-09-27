@@ -9,45 +9,51 @@ import (
 
 // create a dependancy graph
 
-func (eval *Evaluator) loadModule(modulePath string) {
+func (eval *Evaluator) loadModule(modulePath string) ExceptionNode {
 	// ensure the filename exists --> also check for errors in the lexer and the parser too
 	module, err := ioutil.ReadFile(modulePath)
 
 	if err != nil {
-		panic(err.Error())
+		return ExceptionNode{
+			Type:    MODULE_IMPORT_EXCEPTION,
+			Message: err.Error(),
+		}
 	}
 
 	lexer := InitLexer(string(module))
 	parser := InitParser(lexer.Lex())
 
 	for _, node := range parser.Parse().Nodes {
-		_, err = eval.walkTree(node)
+		_, exception := eval.walkTree(node)
 
-		if err != nil {
-			panic(err.Error())
+		if exception.Type != NO_EXCEPTION {
+			return exception
 		}
 	}
+
+	return ExceptionNode{Type: NO_EXCEPTION}
 }
 
-func (eval *Evaluator) _eval(codeString string) (result interface{}) {
+func (eval *Evaluator) _eval(codeString string) (result interface{}, exception ExceptionNode) {
 	lexer := InitLexer(codeString)
 	parser := InitParser(lexer.Lex())
-
-	var err error
 
 	for _, node := range parser.Parse().Nodes {
 
 		switch node.(type) {
 		case ExpressionNode:
 			{
-				result, err = eval.walkTree(node)
+				result, exception = eval.walkTree(node)
 
-				if err != nil {
-					panic(err.Error())
+				if exception.Type != NO_EXCEPTION {
+					return nil, exception
 				}
 			}
 		default:
-			panic("Expected an expression")
+			return nil, ExceptionNode{
+				Type:    INVALID_OPERATION_EXCEPTION,
+				Message: "Expected an expression",
+			}
 		}
 		break
 	}

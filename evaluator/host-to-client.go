@@ -10,7 +10,7 @@ func CheckFunctionArgs(function interface{}) {
 
 }
 
-func DaisyInvoke(eval *Evaluator, key string, args ...interface{}) interface{} {
+func DaisyInvoke(eval *Evaluator, key string, args ...interface{}) (interface{}, ExceptionNode) {
 	value, err := eval.symbolsTable.GetFromContext(key)
 
 	if err != nil {
@@ -19,7 +19,7 @@ func DaisyInvoke(eval *Evaluator, key string, args ...interface{}) interface{} {
 
 	if _value, ok := (*value).(SymbolTableValue); ok {
 		if _value.Type == VALUE || _value.Type == ARRAY {
-			return _value.Value
+			return _value.Value, ExceptionNode{Type: NO_EXCEPTION}
 		}
 
 		eval.symbolsTable.PushContext()
@@ -72,5 +72,5 @@ func DaisyInvoke(eval *Evaluator, key string, args ...interface{}) interface{} {
 		}
 	}
 
-	return NilNode{}
+	return NilNode{}, ExceptionNode{Type: NO_EXCEPTION}
 }

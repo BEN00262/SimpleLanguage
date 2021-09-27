@@ -4,13 +4,8 @@ import (
 	. "github.com/BEN00262/simpleLang/parser"
 )
 
-// states ---> exception --> pass the exception
-func (evaluator *Evaluator) evaluateRaiseNode() {
-
-}
-
 // evaluate a block --> check for specific states
-func (evaluator *Evaluator) _evaluateBlock(block []interface{}, implicitSymTable bool) interface{} {
+func (evaluator *Evaluator) _evaluateBlock(block []interface{}, implicitSymTable bool) (interface{}, ExceptionNode) {
 	if implicitSymTable {
 		evaluator.symbolsTable.PushContext()
 		defer evaluator.symbolsTable.PopContext()
@@ -21,8 +16,8 @@ func (evaluator *Evaluator) _evaluateBlock(block []interface{}, implicitSymTable
 		_return, _error := evaluator.walkTree(_code)
 
 		// find a way to propagate errors down the chain
-		if _error != nil {
-			panic(_error)
+		if _error.Type != NO_EXCEPTION {
+			return nil, _error
 		}
 
 		// handle the return node
@@ -30,43 +25,36 @@ func (evaluator *Evaluator) _evaluateBlock(block []interface{}, implicitSymTable
 		switch __return := _return.(type) {
 		case ReturnNode:
 			{
-				return __return.Expression
-			}
-		case ExceptionNode:
-			{
-				// pass the exception node down
-				return _return
+				return __return.Expression, ExceptionNode{Type: NO_EXCEPTION}
 			}
 		}
 	}
 
-	return nil
+	return nil, ExceptionNode{Type: NO_EXCEPTION}
 }
 
-func (evaluator *Evaluator) evaluateTryCatchFinally(_tryCatchNode TryCatchNode) (interface{}, error) {
+func (evaluator *Evaluator) evaluateTryCatchFinally(_tryCatchNode TryCatchNode) (interface{}, ExceptionNode) {
 	// evaluate this
-	_tryEvaluation := evaluator._evaluateBlock(_tryCatchNode.Try, true)
+	_tryEvaluation, _exceptionThrown := evaluator._evaluateBlock(_tryCatchNode.Try, true)
 	_result := _tryEvaluation
+	_exception := _exceptionThrown
 
-	// check the return value if its an Exception node handle it
-	if exceptionThrown, ok := _tryEvaluation.(ExceptionNode); ok {
+	if _exceptionThrown.Type != NO_EXCEPTION {
 		evaluator.symbolsTable.PushContext()
 		defer evaluator.symbolsTable.PopContext()
 
-		// we have an exception lets evaluate the catch block and then do the finally block
-		// we also need to inject the exeception into the symbols table here
 		evaluator.symbolsTable.PushToContext(_tryCatchNode.Catch.Exception, SymbolTableValue{
 			Type:  VALUE,
-			Value: exceptionThrown,
+			Value: _exceptionThrown,
 		})
 
-		_result = evaluator._evaluateBlock(_tryCatchNode.Catch.Body, false)
+		_result, _exception = evaluator._evaluateBlock(_tryCatchNode.Catch.Body, false)
 	}
 
 	if len(_tryCatchNode.Finally) > 0 {
 		// we have a finally block execute it
-		_result = evaluator._evaluateBlock(_tryCatchNode.Finally, true)
+		_result, _exception = evaluator._evaluateBlock(_tryCatchNode.Finally, true)
 	}
 
-	return _result, nil
+	return _result, _exception
 }

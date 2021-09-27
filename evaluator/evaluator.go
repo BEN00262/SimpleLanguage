@@ -63,26 +63,26 @@ func (eval *Evaluator) TearDownRepl() {
 	eval.symbolsTable.PopContext()
 }
 
-func (eval *Evaluator) executeFunctionCode(code []interface{}) interface{} {
+func (eval *Evaluator) executeFunctionCode(code []interface{}) (interface{}, ExceptionNode) {
 	var returnValue interface{}
-	var err error
+	var exception ExceptionNode
 
 	for _, _code := range code {
-		returnValue, err = eval.walkTree(_code)
+		returnValue, exception = eval.walkTree(_code)
 
-		if err != nil {
-			panic(err.Error())
+		if exception.Type != NO_EXCEPTION {
+			return nil, exception
 		}
 
 		switch _val := returnValue.(type) {
 		case ReturnNode:
 			{
-				return _val.Expression
+				return _val.Expression, ExceptionNode{Type: NO_EXCEPTION}
 			}
 		}
 	}
 
-	return returnValue
+	return returnValue, ExceptionNode{Type: NO_EXCEPTION}
 }
 
 var (
@@ -90,37 +90,41 @@ var (
 )
 
 // return something
-func doArithmetic(left ArthOp, operator string, right interface{}) interface{} {
+func doArithmetic(left ArthOp, operator string, right interface{}) (interface{}, ExceptionNode) {
 	switch operator {
 	case "+":
 		{
-			return left.Add(right)
+			return left.Add(right), ExceptionNode{Type: NO_EXCEPTION}
 		}
 	case "-":
 		{
-			return left.Sub(right)
+			return left.Sub(right), ExceptionNode{Type: NO_EXCEPTION}
 		}
 	case "*":
 		{
-			return left.Mul(right)
+			return left.Mul(right), ExceptionNode{Type: NO_EXCEPTION}
 		}
 	case "%":
 		{
-			return left.Mod(right)
+			return left.Mod(right), ExceptionNode{Type: NO_EXCEPTION}
 		}
 	}
 
-	return NilNode{}
+	// return an exception
+	return nil, ExceptionNode{
+		Type:    INVALID_OPERATOR_EXCEPTION,
+		Message: fmt.Sprintf("Unsupported binary operator, '%s'", operator),
+	}
 }
 
 // simply pass the error down the line
 // until we find an error handler that handles it
-func Compare(comp Comparison, op string, rhs interface{}) BoolNode {
+func Compare(comp Comparison, op string, rhs interface{}) (BoolNode, ExceptionNode) {
 	switch op {
 	case "==":
 		{
 			// call the comparison stuff and return the value
-			return comp.IsEqualTo(rhs)
+			return comp.IsEqualTo(rhs), ExceptionNode{Type: NO_EXCEPTION}
 		}
 	case "!=":
 		{
@@ -132,34 +136,36 @@ func Compare(comp Comparison, op string, rhs interface{}) BoolNode {
 				_comp_.Value = 1
 			}
 
-			return _comp_
+			return _comp_, ExceptionNode{Type: NO_EXCEPTION}
 		}
 	case "<=":
 		{
-			return comp.IsLessThanOrEqualsTo(rhs)
+			return comp.IsLessThanOrEqualsTo(rhs), ExceptionNode{Type: NO_EXCEPTION}
 		}
 	case ">=":
 		{
-			return comp.IsGreaterThanOrEqualsTo(rhs)
+			return comp.IsGreaterThanOrEqualsTo(rhs), ExceptionNode{Type: NO_EXCEPTION}
 		}
 	case ">":
 		{
-			return comp.IsGreaterThan(rhs)
+			return comp.IsGreaterThan(rhs), ExceptionNode{Type: NO_EXCEPTION}
 		}
 	case "<":
 		{
-			return comp.IsLessThan(rhs)
+			return comp.IsLessThan(rhs), ExceptionNode{Type: NO_EXCEPTION}
 		}
 	}
 
 	// panic here the operation is unsupported
-	return BoolNode{
-		Value: 0,
+	// we return an error code buana i think thats a good way to throw stuff down the line
+	return BoolNode{Value: 0}, ExceptionNode{
+		Type:    INVALID_OPERATOR_EXCEPTION,
+		Message: fmt.Sprintf("Unsupported comparison operator '%s'", op),
 	}
 }
 
 // a function to perform string interpolation and return the string node
-func (eval *Evaluator) _stringInterpolate(stringNode StringNode) StringNode {
+func (eval *Evaluator) _stringInterpolate(stringNode StringNode) (StringNode, ExceptionNode) {
 	for _, stringBlock := range INTERPOLATION.FindAllStringSubmatch(stringNode.Value, -1) {
 		if stringBlock != nil {
 			_interpolated_string_ := ""
@@ -170,7 +176,11 @@ func (eval *Evaluator) _stringInterpolate(stringNode StringNode) StringNode {
 			// evaluate the value and get the results
 			// value, _ := eval.symbolsTable.GetFromContext(stringBlock[1])
 
-			_value_ := eval._eval(stringBlock[1])
+			_value_, exception := eval._eval(stringBlock[1])
+
+			if exception.Type != NO_EXCEPTION {
+				return StringNode{}, exception
+			}
 
 			switch _value := _value_.(type) {
 			case NumberNode:
@@ -188,23 +198,28 @@ func (eval *Evaluator) _stringInterpolate(stringNode StringNode) StringNode {
 		}
 	}
 
-	return stringNode
+	return stringNode, ExceptionNode{Type: NO_EXCEPTION}
 }
 
 // do passes over the code inorder to use the documentation strings well for typechecking
-func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
+func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 	switch _node := node.(type) {
 	case VariableNode:
 		{
 			_value, err := eval.symbolsTable.GetFromContext(_node.Value)
 
+			// this one is a none existent value
 			if err != nil {
-				return nil, err
+				return nil, ExceptionNode{
+					Type:    NAME_EXCEPTION,
+					Message: fmt.Sprintf("'%s' is not defined", _node.Value),
+				}
 			}
 
 			_parsedValue := (*_value).(SymbolTableValue)
 
-			return _parsedValue.Value, nil
+			// this will remain that way --> we need a way to actually throw the exception
+			return _parsedValue.Value, ExceptionNode{Type: NO_EXCEPTION}
 		}
 	case TryCatchNode:
 		{
@@ -212,12 +227,31 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 			// find a way to throw errors
 			// this errors will be used then
 			// if we get an exception node just pass it down the line
+			// in the case of this one tuko poa
+			// now check the result and find the exception
+
 			return eval.evaluateTryCatchFinally(_node)
 		}
 	case RaiseExceptionNode:
 		{
+			// raise exception("something", "some explanation")
 			// we just return the exeption
-			return eval.walkTree(_node.Exception)
+			// the result should be an exception node
+
+			_result, _exception := eval.walkTree(_node.Exception)
+
+			if _exception.Type != NO_EXCEPTION {
+				return nil, _exception
+			}
+
+			if _extracted_exception, ok := _result.(ExceptionNode); ok {
+				return nil, _extracted_exception
+			}
+
+			return nil, ExceptionNode{
+				Type:    INVALID_EXCEPTION_EXCEPTION,
+				Message: fmt.Sprintf("%#v is not an exception", _result),
+			}
 		}
 	case ArrayNode:
 		{
@@ -227,18 +261,11 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 			var _array_elements_ []interface{}
 
 			for _, _element_ := range _node.Elements {
-				_element, err := eval.walkTree(_element_)
+				_element, exception := eval.walkTree(_element_)
 
-				if err != nil {
-					return nil, err
-				}
-
-				switch _element.(type) {
-				case ExceptionNode:
-					{
-						// quit the execution and pass the execption node
-						return _element, nil
-					}
+				// we check if the exception returned is not an ok exception if so just exit
+				if exception.Type != NO_EXCEPTION {
+					return nil, exception
 				}
 
 				// we need to check if the element is of type exeception if it is cease the execution and find a catch
@@ -249,7 +276,7 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 
 			return ArrayNode{
 				Elements: _array_elements_,
-			}, nil
+			}, ExceptionNode{Type: NO_EXCEPTION}
 		}
 	case IFNode:
 		{
@@ -262,55 +289,51 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 
 			if _bool_condition.Value == 1 {
 				for _, _code := range _node.ThenBody {
-					res, err := eval.walkTree(_code)
+					res, exception := eval.walkTree(_code)
 
-					if err != nil {
-						return nil, err
+					if exception.Type != NO_EXCEPTION {
+						return nil, exception
 					}
 
 					// check for the return type
 					switch _node_ := res.(type) {
 					case BreakNode:
 						{
-							return BreakNode{}, nil
+							return BreakNode{}, ExceptionNode{Type: NO_EXCEPTION}
 						}
 					case ReturnNode:
 						{
-							return _node_, nil
-						}
-					case ExceptionNode:
-						{
-							return _node_, nil
+							return _node_, ExceptionNode{Type: NO_EXCEPTION}
 						}
 					}
 				}
 
-				return nil, nil
+				return nil, ExceptionNode{Type: NO_EXCEPTION}
 			} else {
 				// we could have thrown an error in other languages but we cant here fuck
 				for _, _code := range _node.ElseBody {
-					res, err := eval.walkTree(_code)
+					res, exception := eval.walkTree(_code)
 
-					if err != nil {
-						return nil, err
+					if exception.Type != NO_EXCEPTION {
+						return nil, exception
 					}
 
 					// check if the
 					switch _node_ := res.(type) {
 					case ReturnNode:
 						{
-							return res, nil
+							return res, ExceptionNode{Type: NO_EXCEPTION}
 						}
 					case BreakNode:
 						{
 							// check the state we are in if it allows this
-							return _node_, nil
+							return _node_, ExceptionNode{Type: NO_EXCEPTION}
 						}
 					}
 				}
 			}
 
-			return nil, nil
+			return nil, ExceptionNode{Type: NO_EXCEPTION}
 		}
 	case BlockNode:
 		{
@@ -319,10 +342,10 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 
 			for _, _code := range _node.Code {
 				// we can throw errors in golang
-				ret, err := eval.walkTree(_code)
+				ret, exception := eval.walkTree(_code)
 
-				if err != nil {
-					return nil, err
+				if exception.Type != NO_EXCEPTION {
+					return nil, exception
 				}
 
 				// ensure the return is not a break node or return node if so just return a nil
@@ -331,36 +354,32 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 					{
 						return ReturnNode{
 							Expression: _node.Expression,
-						}, nil
+						}, ExceptionNode{Type: NO_EXCEPTION}
 					}
 				case BreakNode:
 					{
-						return BreakNode{}, nil
-					}
-				default:
-					{
-						return nil, nil
+						return BreakNode{}, ExceptionNode{Type: NO_EXCEPTION}
 					}
 				}
 			}
 		}
 	case BreakNode:
 		{
-			return _node, nil
+			return _node, ExceptionNode{Type: NO_EXCEPTION}
 		}
 	case NilNode:
 		{
-			return _node, nil
+			return _node, ExceptionNode{Type: NO_EXCEPTION}
 		}
 	case ReturnNode:
 		{
-			_ret, err := eval.walkTree(_node.Expression)
+			_ret, exception := eval.walkTree(_node.Expression)
 
-			if err != nil {
-				return nil, err
+			if exception.Type != NO_EXCEPTION {
+				return nil, exception
 			}
 
-			return ReturnNode{Expression: _ret}, nil
+			return ReturnNode{Expression: _ret}, ExceptionNode{Type: NO_EXCEPTION}
 		}
 	case ForNode:
 		{
@@ -378,10 +397,10 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 
 					for isExecuting {
 						for _, _code := range _node.ForBody {
-							retToken, err := eval.walkTree(_code)
+							retToken, exception := eval.walkTree(_code)
 
-							if err != nil {
-								return nil, err
+							if exception.Type != NO_EXCEPTION {
+								return nil, exception
 							}
 
 							// if the token is a break statement just exit the execution
@@ -392,7 +411,7 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 								}
 							case ReturnNode:
 								{
-									return _node_, nil
+									return _node_, ExceptionNode{Type: NO_EXCEPTION}
 								}
 							}
 						}
@@ -402,17 +421,17 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 				{
 					_initialization := _node.Initialization.(Assignment)
 
-					_, err := eval.walkTree(_initialization)
+					_, exception := eval.walkTree(_initialization)
 
-					if err != nil {
-						return nil, err
+					if exception.Type != NO_EXCEPTION {
+						return nil, exception
 					}
 
 					// get the condition
-					_condition, err := eval.walkTree(_node.Condition)
+					_condition, exception := eval.walkTree(_node.Condition)
 
-					if err != nil {
-						return nil, err
+					if exception.Type != NO_EXCEPTION {
+						return nil, exception
 					}
 
 					// convert the condition to a BoolNode and check the return value
@@ -421,17 +440,17 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 					if _condition_bool_.Value == 0 {
 						// this is a false thing
 						// do not proceed anywhere
-						return nil, nil
+						return nil, ExceptionNode{Type: NO_EXCEPTION}
 					}
 
 					isExecuting := true
 
 					for isExecuting && _condition_bool_.Value == 1 {
 						for _, _code := range _node.ForBody {
-							retToken, err := eval.walkTree(_code)
+							retToken, exception := eval.walkTree(_code)
 
-							if err != nil {
-								return nil, err
+							if exception.Type != NO_EXCEPTION {
+								return nil, exception
 							}
 
 							// if the token is a break statement just exit the execution
@@ -442,15 +461,15 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 								}
 							case ReturnNode:
 								{
-									return _node_, nil
+									return _node_, ExceptionNode{Type: NO_EXCEPTION}
 								}
 							}
 						}
 
-						_increment_return_value_, err := eval.walkTree(_node.Increment)
+						_increment_return_value_, exception := eval.walkTree(_node.Increment)
 
-						if err != nil {
-							return nil, err
+						if exception.Type != NO_EXCEPTION {
+							return nil, exception
 						}
 
 						_increment_return_value := _increment_return_value_.(NumberNode)
@@ -463,10 +482,10 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 						})
 
 						// re-evaluate the condition again
-						_condition, err = eval.walkTree(_node.Condition)
+						_condition, exception = eval.walkTree(_node.Condition)
 
-						if err != nil {
-							return nil, err
+						if exception.Type != NO_EXCEPTION {
+							return nil, exception
 						}
 
 						// convert the condition to a BoolNode and check the return value
@@ -477,10 +496,10 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 			case WHILE_CONDITIONAL:
 				{
 					// the condition must evaluate to BoolNode inorder to be used here
-					_condition, err := eval.walkTree(_node.Condition)
+					_condition, exception := eval.walkTree(_node.Condition)
 
-					if err != nil {
-						return nil, err
+					if exception.Type != NO_EXCEPTION {
+						return nil, exception
 					}
 
 					// convert the condition to a BoolNode and check the return value
@@ -489,17 +508,17 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 					if _condition_bool_.Value == 0 {
 						// this is a false thing
 						// do not proceed anywhere
-						return nil, nil
+						return nil, ExceptionNode{Type: NO_EXCEPTION}
 					}
 
 					isExecuting := true
 
 					for isExecuting && _condition_bool_.Value == 1 {
 						for _, _code := range _node.ForBody {
-							retToken, err := eval.walkTree(_code)
+							retToken, exception := eval.walkTree(_code)
 
-							if err != nil {
-								return nil, err
+							if exception.Type != NO_EXCEPTION {
+								return nil, exception
 							}
 
 							// if the token is a break statement just exit the execution
@@ -510,16 +529,16 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 								}
 							case ReturnNode:
 								{
-									return _node_, nil
+									return _node_, ExceptionNode{Type: NO_EXCEPTION}
 								}
 							}
 						}
 
 						// re-evaluate the condition again
-						_condition, err = eval.walkTree(_node.Condition)
+						_condition, exception = eval.walkTree(_node.Condition)
 
-						if err != nil {
-							return nil, err
+						if exception.Type != NO_EXCEPTION {
+							return nil, exception
 						}
 
 						// convert the condition to a BoolNode and check the return value
@@ -528,12 +547,12 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 				}
 			}
 
-			return nil, nil
+			return nil, ExceptionNode{Type: NO_EXCEPTION}
 		}
 	case StringNode:
 		{
 			// first check if the string is being interpolated if so interpolate it
-			return eval._stringInterpolate(_node), nil
+			return eval._stringInterpolate(_node)
 		}
 	case IIFENode:
 		{
@@ -545,14 +564,17 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 
 			// we get the value then execute the code here
 			if _function_decl_.ParamCount != _node.ArgCount {
-				return nil, fmt.Errorf("IIFE function expected %d args but only %d args given", _function_decl_.ParamCount, _node.ArgCount)
+				return nil, ExceptionNode{
+					Type:    ARITY_EXCEPTION,
+					Message: fmt.Sprintf("IIFE function expected %d args but only %d args given", _function_decl_.ParamCount, _node.ArgCount),
+				}
 			}
 
-			return eval.executeFunctionCode(_function_decl_.Code), nil
+			return eval.executeFunctionCode(_function_decl_.Code)
 		}
 	case NumberNode:
 		{
-			return _node, nil
+			return _node, ExceptionNode{Type: NO_EXCEPTION}
 		}
 	case ExpressionNode:
 		{
@@ -562,17 +584,16 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 		{
 			// we have to check the binary Node to ascertain
 			// return the evaluation here
-			lhs, err := eval.walkTree(_node.Lhs)
+			lhs, exception := eval.walkTree(_node.Lhs)
 
-			if err != nil {
-				// throw an error here
-				panic(err.Error())
+			if exception.Type != NO_EXCEPTION {
+				return nil, exception
 			}
 
-			rhs, err := eval.walkTree(_node.Rhs)
+			rhs, exception := eval.walkTree(_node.Rhs)
 
-			if err != nil {
-				panic(err.Error())
+			if exception.Type != NO_EXCEPTION {
+				return nil, exception
 			}
 
 			// additions allowed --> string + number / number + string / number + number
@@ -583,14 +604,15 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 			switch _lhs := lhs.(type) {
 			case NumberNode:
 				{
-					return doArithmetic(&_lhs, _node.Operator, rhs), nil
+					return doArithmetic(&_lhs, _node.Operator, rhs)
 				}
 			case StringNode:
 				{
-					return doArithmetic(&_lhs, _node.Operator, rhs), nil
+					return doArithmetic(&_lhs, _node.Operator, rhs)
 				}
 			}
 
+			// we should not panic buana in this system
 			panic(fmt.Errorf("Invalid operation %#v", _node))
 		}
 	case FunctionDecl:
@@ -602,22 +624,26 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 		}
 	case AnonymousFunction:
 		{
-			return _node, nil
+			return _node, ExceptionNode{Type: NO_EXCEPTION}
 		}
 	case FunctionCall:
 		{
 			function, err := eval.symbolsTable.GetFromContext(_node.Name)
 
 			if err != nil {
-				return nil, err
+				return nil, ExceptionNode{
+					Type:    NAME_EXCEPTION,
+					Message: fmt.Sprintf("'%s' does not exist", _node.Name),
+				}
 			}
 
-			// check if the value found is a function if not throw an error
 			_function := (*function).(SymbolTableValue)
 
-			if _function.Type != FUNCTION || _function.Type != EXTERNALFUNC {
-				// throw an error here
-
+			if _function.Type != FUNCTION && _function.Type != EXTERNALFUNC {
+				return nil, ExceptionNode{
+					Type:    NAME_EXCEPTION,
+					Message: fmt.Sprintf("'%#v' is not a function", _function.Value),
+				}
 			}
 
 			if _function.Type == EXTERNALFUNC {
@@ -628,7 +654,10 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 
 				if _function_decl_.ParamCount != _node.ArgCount {
 					// throw an error here
-					return nil, fmt.Errorf("'%s' expected %d args but only %d args given", _node.Name, _function_decl_.ParamCount, _node.ArgCount)
+					return nil, ExceptionNode{
+						Type:    ARITY_EXCEPTION,
+						Message: fmt.Sprintf("'%s' expected %d args but only %d args given", _node.Name, _function_decl_.ParamCount, _node.ArgCount),
+					}
 				}
 
 				// evaluate each argument --> i think
@@ -638,10 +667,10 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 				// we evaluate the args -->
 
 				for _, _myArg := range _node.Args {
-					_val, err := eval.walkTree(_myArg)
+					_val, exception := eval.walkTree(_myArg)
 
-					if err != nil {
-						panic(err.Error())
+					if exception.Type != NO_EXCEPTION {
+						return nil, exception
 					}
 
 					// get the type of the _val
@@ -651,17 +680,19 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 							// we break out of the function execution with the given thing
 							// print this value
 							// fmt.Println(_val)
-							return _val_.Expression, nil
+							return _val_.Expression, ExceptionNode{Type: NO_EXCEPTION}
 						}
 					}
 
 					_args = append(_args, &_val)
 				}
 
-				return _function_decl_.Function(_args...), nil
+				return _function_decl_.Function(_args...)
 			}
 
 			var returnValue interface{}
+			var exception ExceptionNode
+
 			eval.symbolsTable.PushContext()
 			defer eval.symbolsTable.PopContext()
 
@@ -669,17 +700,20 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 			case FunctionDecl:
 				{
 					if _function_decl_.ParamCount != _node.ArgCount {
-						return nil, fmt.Errorf("'%s' expected %d args but only %d args given", _node.Name, _function_decl_.ParamCount, _node.ArgCount)
+						return nil, ExceptionNode{
+							Type:    ARITY_EXCEPTION,
+							Message: fmt.Sprintf("'%s' expected %d args but only %d args given", _node.Name, _function_decl_.ParamCount, _node.ArgCount),
+						}
 					}
 
 					// push the function args into the current scope
 					for _, Param := range _function_decl_.Params {
 						// find the _args and push them into the current
 						// if we walk we find the values
-						res, err := eval.walkTree(_node.Args[Param.Position])
+						res, exception := eval.walkTree(_node.Args[Param.Position])
 
-						if err != nil {
-							panic(err.Error())
+						if exception.Type != NO_EXCEPTION {
+							return nil, exception
 						}
 
 						valueType := VALUE
@@ -702,34 +736,45 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 					}
 
 					// this is the place we are executing the functions
-					returnValue = eval.executeFunctionCode(_function_decl_.Code)
+					returnValue, exception = eval.executeFunctionCode(_function_decl_.Code)
+
+					if exception.Type != NO_EXCEPTION {
+						return nil, exception
+					}
 				}
 			case AnonymousFunction:
 				{
 					if _function_decl_.ParamCount != _node.ArgCount {
-						return nil, fmt.Errorf("'%s' expected %d args but only %d args given", _node.Name, _function_decl_.ParamCount, _node.ArgCount)
+						return nil, ExceptionNode{
+							Type:    ARITY_EXCEPTION,
+							Message: fmt.Sprintf("'%s' expected %d args but only %d args given", _node.Name, _function_decl_.ParamCount, _node.ArgCount),
+						}
 					}
 
-					returnValue = eval.executeFunctionCode(_function_decl_.Code)
+					returnValue, exception = eval.executeFunctionCode(_function_decl_.Code)
+
+					if exception.Type != NO_EXCEPTION {
+						return nil, exception
+					}
 				}
 			}
 
-			return returnValue, nil
+			return returnValue, ExceptionNode{Type: NO_EXCEPTION}
 		}
 	case BoolNode:
 		{
-			return _node, nil
+			return _node, ExceptionNode{Type: NO_EXCEPTION}
 		}
 	case CommentNode:
 		{
-			return _node, nil
+			return _node, ExceptionNode{Type: NO_EXCEPTION}
 		}
 	case ArrayAccessorNode:
 		{
-			_index_of_element_, err := eval.walkTree(_node.Index)
+			_index_of_element_, exception := eval.walkTree(_node.Index)
 
-			if err != nil {
-				return nil, err
+			if exception.Type != NO_EXCEPTION {
+				return nil, exception
 			}
 
 			// we should also check the type of the stuff
@@ -738,7 +783,10 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 				_array_, err := eval.symbolsTable.GetFromContext(_node.Array)
 
 				if err != nil {
-					return nil, err
+					return nil, ExceptionNode{
+						Type:    NAME_EXCEPTION,
+						Message: fmt.Sprintf("'%s' does not exist", _node.Array),
+					}
 				}
 
 				_array_symbols_table_ := (*_array_).(SymbolTableValue)
@@ -748,28 +796,35 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 					switch _node.Type {
 					case NORMAL:
 						{
-							return _implemented.Get(_index_.Value), nil
+							return _implemented.Get(_index_.Value), ExceptionNode{Type: NO_EXCEPTION}
 						}
 					case RANGE:
 						{
-							_end_index_, err := eval.walkTree(_node.EndIndex)
+							_end_index_, exception := eval.walkTree(_node.EndIndex)
 
-							if err != nil {
-								return nil, fmt.Errorf("The end expression failed to evaluate")
+							if exception.Type != NO_EXCEPTION {
+								return nil, exception
 							}
 
 							if _eIndex_, ok := _end_index_.(NumberNode); ok {
-								return _implemented.Range(_index_.Value, _eIndex_.Value), nil
+								return _implemented.Range(_index_.Value, _eIndex_.Value), ExceptionNode{Type: NO_EXCEPTION}
 							}
 						}
 					}
 				}
 
-				return nil, fmt.Errorf("Failed to fetch element at the given index")
+				// fmt.Errorf("Failed to fetch element at the given index")
+				return nil, ExceptionNode{
+					Type:    INVALID_INDEX_EXCEPTION,
+					Message: fmt.Sprintf("Failed to fetch element at the given index '%d'", _index_.Value),
+				}
 			}
 
 			// ensure the _index_of_element is a number node else return an error node
-			return nil, fmt.Errorf("Given index expression does not evaluate to a number")
+			return nil, ExceptionNode{
+				Type:    INVALID_OPERATION_EXCEPTION,
+				Message: fmt.Sprint("Given index expression does not evaluate to a number"),
+			}
 		}
 	case Assignment:
 		{
@@ -811,48 +866,55 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, error) {
 	case ConditionNode:
 		{
 			// evaluate this stuff
-			_lhs, err := eval.walkTree(_node.Lhs)
+			_lhs, exception := eval.walkTree(_node.Lhs)
 
-			if err != nil {
-				return nil, err
+			if exception.Type != NO_EXCEPTION {
+				return nil, exception
 			}
 
-			_rhs, err := eval.walkTree(_node.Rhs)
+			_rhs, exception := eval.walkTree(_node.Rhs)
 
-			if err != nil {
-				return nil, err
+			if exception.Type != NO_EXCEPTION {
+				return nil, exception
 			}
 
 			// start the switching here
 			switch _lhs_ := _lhs.(type) {
 			case NumberNode:
 				{
-					return Compare(&_lhs_, _node.Operator, _rhs), nil
+					return Compare(&_lhs_, _node.Operator, _rhs)
 				}
 			case StringNode:
 				{
-					return Compare(&_lhs_, _node.Operator, _rhs), nil
+					return Compare(&_lhs_, _node.Operator, _rhs)
 				}
 			case BoolNode:
 				{
-					return Compare(&_lhs_, _node.Operator, _rhs), nil
+					return Compare(&_lhs_, _node.Operator, _rhs)
 				}
 			case NilNode:
 				{
-					return Compare(&_lhs_, _node.Operator, _rhs), nil
+					return Compare(&_lhs_, _node.Operator, _rhs)
 				}
 			default:
-				return nil, fmt.Errorf("%#v does not implement the Comparison interface", _lhs_)
+				// fmt.Errorf("%#v does not implement the Comparison interface", _lhs_)
+				return nil, ExceptionNode{
+					Type:    INVALID_OPERATION_EXCEPTION,
+					Message: fmt.Sprintf("%#v does not implement the Comparison interface", _lhs_),
+				}
 			}
 		}
 	default:
 		{
 			// fmt.Println(_node)
-			return nil, nil //fmt.Errorf("Uknown node %#v", _node)
+			return nil, ExceptionNode{
+				Type:    INVALID_NODE_EXCEPTION,
+				Message: fmt.Sprintf("Uknown node %#v", _node),
+			}
 		}
 	}
 
-	return nil, nil
+	return nil, ExceptionNode{Type: NO_EXCEPTION}
 }
 
 // think about this very hard
@@ -867,13 +929,14 @@ func (eval *Evaluator) InjectIntoGlobalScope(key string, value interface{}) {
 
 func (eval *Evaluator) replEvaluate() interface{} {
 	var ret interface{}
-	var err error
+	var exception ExceptionNode
 
 	for _, node := range eval.program.Nodes {
-		ret, err = eval.walkTree(node)
+		ret, exception = eval.walkTree(node)
 
-		if err != nil {
-			panic(err.Error())
+		if exception.Type != NO_EXCEPTION {
+			// we just return the exception node
+			return exception
 		}
 	}
 
@@ -882,23 +945,19 @@ func (eval *Evaluator) replEvaluate() interface{} {
 
 func (eval *Evaluator) Evaluate() interface{} {
 	var ret interface{}
-	var err error
+	var exception ExceptionNode
 
 	eval.symbolsTable.PushContext()
 
 	for _, node := range eval.program.Nodes {
-		ret, err = eval.walkTree(node)
+		ret, exception = eval.walkTree(node)
 
-		if err != nil {
-			panic(err.Error())
-		}
+		// we should not panic or return an error at all instead use the internal data structures
+		// start on this kesho
 
-		switch _ret := ret.(type) {
-		case ExceptionNode:
-			{
-				fmt.Printf("[ %s ] %s\n\n", _ret.Type, _ret.Message)
-				return nil
-			}
+		if exception.Type != NO_EXCEPTION {
+			fmt.Printf("[ %s ] %s\n\n", exception.Type, exception.Message)
+			return nil
 		}
 	}
 
