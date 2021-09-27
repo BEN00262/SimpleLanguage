@@ -15,4 +15,5 @@ const (
 	INVALID_OPERATOR_EXCEPTION  = "InvalidOperatorException"
 	MODULE_IMPORT_EXCEPTION     = "ModuleImportException"
 	INVALID_EXCEPTION_EXCEPTION = "InvalidExceptionException"
+	INTERNAL_RETURN_EXCEPTION   = "InternalReturnException"
 )

@@ -1,2 +1,9 @@
-def r = 9 +78
-print(r)
+fun sampleFunc(age) {
+    if age > 20 {
+        return "you are an adult"
+    }
+
+    return "you are not an adult"
+}
+
+print(sampleFunc(10))

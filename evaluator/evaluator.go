@@ -63,6 +63,9 @@ func (eval *Evaluator) TearDownRepl() {
 	eval.symbolsTable.PopContext()
 }
 
+// we need a way to inform of the return node stuff
+// we can use the exceptions i think
+
 func (eval *Evaluator) executeFunctionCode(code []interface{}) (interface{}, ExceptionNode) {
 	var returnValue interface{}
 	var exception ExceptionNode
@@ -77,7 +80,8 @@ func (eval *Evaluator) executeFunctionCode(code []interface{}) (interface{}, Exc
 		switch _val := returnValue.(type) {
 		case ReturnNode:
 			{
-				return _val.Expression, ExceptionNode{Type: NO_EXCEPTION}
+				// we need a way to break the loop of execution
+				return _val.Expression, ExceptionNode{Type: INTERNAL_RETURN_EXCEPTION}
 			}
 		}
 	}
@@ -570,7 +574,14 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 				}
 			}
 
-			return eval.executeFunctionCode(_function_decl_.Code)
+			_ret, _exception := eval.executeFunctionCode(_function_decl_.Code)
+
+			// check if the exception is of INTERNAL_RETURN_EXCEPTION if so just return the results
+			if _exception.Type == INTERNAL_RETURN_EXCEPTION {
+				return _ret, ExceptionNode{Type: NO_EXCEPTION}
+			}
+
+			return _ret, _exception
 		}
 	case NumberNode:
 		{
@@ -738,6 +749,11 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 					// this is the place we are executing the functions
 					returnValue, exception = eval.executeFunctionCode(_function_decl_.Code)
 
+					// check if the exception is of INTERNAL_RETURN_EXCEPTION if so just return the results
+					if exception.Type == INTERNAL_RETURN_EXCEPTION {
+						return returnValue, ExceptionNode{Type: NO_EXCEPTION}
+					}
+
 					if exception.Type != NO_EXCEPTION {
 						return nil, exception
 					}
@@ -752,6 +768,11 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 					}
 
 					returnValue, exception = eval.executeFunctionCode(_function_decl_.Code)
+
+					// check if the exception is of INTERNAL_RETURN_EXCEPTION if so just return the results
+					if exception.Type == INTERNAL_RETURN_EXCEPTION {
+						return returnValue, ExceptionNode{Type: NO_EXCEPTION}
+					}
 
 					if exception.Type != NO_EXCEPTION {
 						return nil, exception
