@@ -1,1 +1,25 @@
 https://towardsdatascience.com/data-structures-1-hash-tables-f520cb3dc85 --> implement a dictionary using hashtables
+
+
+# symbolsTables
+# SymbolsValues
+# Namespaces
+# { }
+
+# get a value from a scope ---> namespace.something --> create runtime nodes ( for the evaluator to use )
+
+
+# create this namespace can be renamed using as in the importation
+# namespace Factorial {
+#     expose fun factorial(number) {
+
+#     }
+
+#     expose def PI = 67
+
+#     expose fun anotherFun() {
+#         return PI * 9
+#     }
+# }
+
+# Factorial.factorial(9)

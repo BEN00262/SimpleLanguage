@@ -34,10 +34,6 @@ func (literal *LiteralParsing) ExecuteLiteralCode() interface{} {
 }
 
 func (literal *LiteralParsing) GenerateDocumentation() string {
-
-	// match other stuff also
-	// like headers and stuff
-	// for headers inject headers shit
 	for _, headerBlock := range HEADER_BLOCK.FindAllStringSubmatch(literal.KnuthCode, -1) {
 		if headerBlock != nil {
 			lhs := headerBlock[1]

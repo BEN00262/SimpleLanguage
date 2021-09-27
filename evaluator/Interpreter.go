@@ -21,19 +21,10 @@ func Interpreter(codeString string) interface{} {
 	fmt.Println(program)
 	fmt.Println()
 
-	// // ast := initAST(program)
-
-	// // ast.walk()
-
-	// // for _, nodes := range program.Nodes {
-	// // 	fmt.Println(nodes)
-	// // }
-
 	evaluator := initEvaluator(program)
 
 	evaluator.InitGlobalScope()
 	LoadGlobalsToContext(evaluator)
 
-	evaluator.Evaluate()
-	return nil
+	return evaluator.Evaluate()
 }

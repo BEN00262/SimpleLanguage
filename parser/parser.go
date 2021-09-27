@@ -22,6 +22,7 @@ type Parser struct {
 	State           []ParsingState // push into this state
 	CurrentPosition int
 	TokensLength    int
+	ParsingError    string // this is showing the error and crashing this should a chan
 }
 
 func InitParser(tokens []Token) *Parser {
@@ -424,6 +425,9 @@ func (parser *Parser) _parse(token Token) interface{} {
 					// check the current state we are in
 					if !parser.EnsureCurrentParsingStateIs(LOOP_STATE, false) {
 						// panic here
+						// parser.ParsingError = "Break cannot be used outside a loop"
+
+						// goto parsingError
 						panic("Break cannot be used outside a loop")
 					}
 
@@ -431,9 +435,14 @@ func (parser *Parser) _parse(token Token) interface{} {
 				}
 			case RETURN:
 				{
+					// work with this and check
 					if !parser.EnsureCurrentParsingStateIs(FUNCTION_STATE, true) {
 						// panic here
+						// we should not panic rather jump to an error state --> use gotos
 						panic("Return cannot be used outside a function definition")
+
+						// parser.ParsingError = "Return cannot be used outside a function definition"
+						// goto parsingError
 					}
 
 					parser.eatToken()
@@ -444,9 +453,10 @@ func (parser *Parser) _parse(token Token) interface{} {
 						Expression: _expression,
 					}
 				}
-			case DEF:
+			case DEF, CONST:
 				{
-					parser.eatToken() // eat the def keyword
+					_currentTokenType := parser.CurrentToken().Value
+					parser.eatToken() // eat the def or const keyword or const key
 
 					lvalue := parser.CurrentToken().Value.(string)
 
@@ -459,9 +469,15 @@ func (parser *Parser) _parse(token Token) interface{} {
 					)
 
 					rvalue := parser.ParseAssignment()
+					_type := ASSIGNMENT
+
+					if _currentTokenType == CONST {
+						// change the type to const type
+						_type = CONST_ASSIGNMENT // used to check later when the person tries to reassign
+					}
 
 					return Assignment{
-						Type:   ASSIGNMENT,
+						Type:   _type,
 						Lvalue: lvalue,
 						Rvalue: rvalue,
 					}
@@ -476,6 +492,7 @@ func (parser *Parser) _parse(token Token) interface{} {
 					parser.eatToken()
 					fileName := parser.CurrentToken()
 					parser.eatToken()
+
 					return Import{
 						FileName: fileName.Value.(string),
 					}
@@ -520,6 +537,12 @@ func (parser *Parser) _parse(token Token) interface{} {
 			return parser._parseExpression()
 		}
 	}
+
+	// return something hapa
+	// just return the error
+	// set an error state
+	// parsingError:
+	// 	return nil
 }
 
 func (parser *Parser) Parse() *ProgramNode {

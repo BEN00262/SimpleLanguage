@@ -32,6 +32,7 @@ func (symbolsTable *SymbolsTable) PushToContext(key string, value interface{}) {
 }
 
 // we need to find a position in the context and push the value in there
+// we kinda need to tell it whether to tell us kama there was a value in there b4
 func (symbolsTable *SymbolsTable) PushToParentContext(key string, value interface{}) error {
 	lengthOfSymbolsTable := len(symbolsTable.Contexts) - 1
 

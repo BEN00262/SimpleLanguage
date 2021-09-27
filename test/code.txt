@@ -2,9 +2,8 @@
 #!H3 a smaller title #!H3
 
 #!START_CODE
-#@ void => bool
 fun first() {
-    true
+    return 56
 } 
 
 print(first())
@@ -14,12 +13,11 @@ we are going to do the best the world has ever seen and make u proud
 right is the new wrong nowadays btw
 
 #!START_CODE
-#@ void => bool
 fun second() {
-    2 + 8
+    return 2 + 8
 } 
 
-print(second())
+print(second() + first())
 #!END_CODE
 night in the place for the man is the best there can be :)
 This btw is valid code btw

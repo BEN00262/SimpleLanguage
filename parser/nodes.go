@@ -3,6 +3,8 @@ package parser
 import (
 	"fmt"
 	"strings"
+
+	. "github.com/BEN00262/simpleLang/exceptions"
 )
 
 type ExternalFunction = func(value ...*interface{}) (interface{}, ExceptionNode)
@@ -204,6 +206,7 @@ type AssignmentType = int
 
 const (
 	ASSIGNMENT AssignmentType = iota + 1
+	CONST_ASSIGNMENT
 	REASSIGNMENT
 )
 
@@ -408,6 +411,7 @@ type ArthOp interface {
 }
 
 // this implements the Equals interface
+// this should not be an int ( use float64 laters )
 type NumberNode struct {
 	Value int
 }
@@ -433,7 +437,10 @@ func (number *NumberNode) Add(right interface{}) interface{} {
 	}
 
 	// we should return an error code here
-	return NilNode{}
+	return ExceptionNode{
+		Type:    INVALID_OPERATION_EXCEPTION,
+		Message: "Unsupported operation on type 'number'",
+	}
 }
 
 // implementing arithmetic operations
@@ -450,7 +457,10 @@ func (number *NumberNode) Sub(right interface{}) interface{} {
 	}
 
 	// we should return an error code here
-	return NilNode{}
+	return ExceptionNode{
+		Type:    INVALID_OPERATION_EXCEPTION,
+		Message: "Unsupported operation on type 'number'",
+	}
 }
 
 // implementing arithmetic operations
@@ -459,6 +469,14 @@ func (number *NumberNode) Mod(right interface{}) interface{} {
 	switch _right := right.(type) {
 	case NumberNode:
 		{
+			if _right.Value == 0 {
+				// DIVISION_BY_ZERO_EXCEPTION
+				return ExceptionNode{
+					Type:    DIVISION_BY_ZERO_EXCEPTION,
+					Message: "Division or Modulo by zero error",
+				}
+			}
+
 			// just add the numbers
 			return NumberNode{
 				Value: number.Value % _right.Value,
@@ -467,7 +485,10 @@ func (number *NumberNode) Mod(right interface{}) interface{} {
 	}
 
 	// we should return an error code here
-	return NilNode{}
+	return ExceptionNode{
+		Type:    INVALID_OPERATION_EXCEPTION,
+		Message: "Unsupported operation on type 'number'",
+	}
 }
 
 // implementing arithmetic operations
@@ -476,6 +497,15 @@ func (number *NumberNode) Div(right interface{}) interface{} {
 	switch _right := right.(type) {
 	case NumberNode:
 		{
+			// if the _right value is zero throw a divide by zero exception
+			if _right.Value == 0 {
+				// DIVISION_BY_ZERO_EXCEPTION
+				return ExceptionNode{
+					Type:    DIVISION_BY_ZERO_EXCEPTION,
+					Message: "Division or Modulo by zero error",
+				}
+			}
+
 			// just add the numbers
 			return NumberNode{
 				Value: number.Value / _right.Value,
@@ -484,7 +514,10 @@ func (number *NumberNode) Div(right interface{}) interface{} {
 	}
 
 	// we should return an error code here
-	return NilNode{}
+	return ExceptionNode{
+		Type:    INVALID_OPERATION_EXCEPTION,
+		Message: "Unsupported operation on type 'number'",
+	}
 }
 
 // implementing arithmetic operations
@@ -501,7 +534,10 @@ func (number *NumberNode) Mul(right interface{}) interface{} {
 	}
 
 	// we should return an error code here
-	return NilNode{}
+	return ExceptionNode{
+		Type:    INVALID_OPERATION_EXCEPTION,
+		Message: "Unsupported operation on type 'number'",
+	}
 }
 
 // comperison interface implementation
@@ -612,7 +648,11 @@ func (stringNode *StringNode) Add(right interface{}) interface{} {
 		}
 	}
 
-	return NilNode{}
+	// we have an an invalid operation
+	return ExceptionNode{
+		Type:    INVALID_OPERATION_EXCEPTION,
+		Message: "Operation not supported in strings",
+	}
 }
 
 func (stringNode *StringNode) Mul(right interface{}) interface{} {
@@ -625,20 +665,32 @@ func (stringNode *StringNode) Mul(right interface{}) interface{} {
 		}
 	}
 
-	return NilNode{}
+	return ExceptionNode{
+		Type:    INVALID_OPERATION_EXCEPTION,
+		Message: "Operation not supported in strings",
+	}
 }
 
 // not implemented for the language
 func (stringNode *StringNode) Mod(right interface{}) interface{} {
-	return NilNode{}
+	return ExceptionNode{
+		Type:    INVALID_OPERATION_EXCEPTION,
+		Message: "Operation not supported in strings",
+	}
 }
 
 func (stringNode *StringNode) Div(right interface{}) interface{} {
-	return NilNode{}
+	return ExceptionNode{
+		Type:    INVALID_OPERATION_EXCEPTION,
+		Message: "Operation not supported in strings",
+	}
 }
 
 func (stringNode *StringNode) Sub(right interface{}) interface{} {
-	return NilNode{}
+	return ExceptionNode{
+		Type:    INVALID_OPERATION_EXCEPTION,
+		Message: "Operation not supported in strings",
+	}
 }
 
 // make the string indexeable and countable

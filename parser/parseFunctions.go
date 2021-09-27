@@ -11,8 +11,11 @@ func IsTypeAndValue(token Token, expectedType TokenType, value string) bool {
 }
 
 // this eats the next token
+// we dont want to panic
+// we just want to pass the error down and return it
 func (parser *Parser) IsExpectedEatElsePanic(token Token, expectedType TokenType, value string, panicMessage string) {
 	if !IsTypeAndValue(token, expectedType, value) {
+		// what if we use chans and then if the error state changes to true just exit it
 		panic(panicMessage)
 	}
 	parser.eatToken() // advance the counter if true

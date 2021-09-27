@@ -19,4 +19,5 @@ const (
 	CATCH   = "catch"
 	FINALLY = "finally"
 	RAISE   = "raise"
+	CONST   = "const"
 )

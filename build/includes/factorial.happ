@@ -1,0 +1,22 @@
+# this is a simple factorial function
+fun factorial(number) {
+    if number <= 1 {
+        return 1
+    }
+
+    # this is a return statement
+    return number * factorial(number - 1)
+}
+
+# fibonacci function using recursion
+fun fibonnaci(number) {
+    if number <= 0 {
+        return 0
+    }
+
+    if number == 1 {
+        return number
+    }
+
+    return fibonnaci(number - 1) + fibonnaci(number - 2)
+}

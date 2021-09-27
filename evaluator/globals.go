@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	. "github.com/BEN00262/simpleLang/exceptions"
 	. "github.com/BEN00262/simpleLang/parser"
 )
 

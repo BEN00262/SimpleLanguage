@@ -1,8 +1,12 @@
 package evaluator
 
 import (
+	. "github.com/BEN00262/simpleLang/exceptions"
 	. "github.com/BEN00262/simpleLang/parser"
 )
+
+// on executing a function we will use the top level symbols table which is not ideal for namespaces
+// find a way of doing this
 
 // evaluate a block --> check for specific states
 func (evaluator *Evaluator) _evaluateBlock(block []interface{}, implicitSymTable bool) (interface{}, ExceptionNode) {
@@ -38,6 +42,11 @@ func (evaluator *Evaluator) evaluateTryCatchFinally(_tryCatchNode TryCatchNode) 
 	_tryEvaluation, _exceptionThrown := evaluator._evaluateBlock(_tryCatchNode.Try, true)
 	_result := _tryEvaluation
 	_exception := _exceptionThrown
+
+	// check if the exception is of INTERNAL_RETURN_EXCEPTION if so just return the results
+	if _exception.Type == INTERNAL_RETURN_EXCEPTION {
+		return _tryEvaluation, ExceptionNode{Type: NO_EXCEPTION}
+	}
 
 	if _exceptionThrown.Type != NO_EXCEPTION {
 		evaluator.symbolsTable.PushContext()

@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	. "github.com/BEN00262/simpleLang/exceptions"
 	. "github.com/BEN00262/simpleLang/parser"
 	symTable "github.com/BEN00262/simpleLang/symbolstable"
 )
@@ -93,24 +94,36 @@ var (
 	INTERPOLATION = regexp.MustCompile(`{((\s*?.*?)*?)}`)
 )
 
+func evaluateAndReturn(_response interface{}) (interface{}, ExceptionNode) {
+	if _exception, ok := _response.(ExceptionNode); ok {
+		return nil, _exception
+	}
+
+	return _response, ExceptionNode{Type: NO_EXCEPTION}
+}
+
 // return something
 func doArithmetic(left ArthOp, operator string, right interface{}) (interface{}, ExceptionNode) {
 	switch operator {
 	case "+":
 		{
-			return left.Add(right), ExceptionNode{Type: NO_EXCEPTION}
+			return evaluateAndReturn(left.Add(right))
 		}
 	case "-":
 		{
-			return left.Sub(right), ExceptionNode{Type: NO_EXCEPTION}
+			return evaluateAndReturn(left.Sub(right))
 		}
 	case "*":
 		{
-			return left.Mul(right), ExceptionNode{Type: NO_EXCEPTION}
+			return evaluateAndReturn(left.Mul(right))
 		}
 	case "%":
 		{
-			return left.Mod(right), ExceptionNode{Type: NO_EXCEPTION}
+			return evaluateAndReturn(left.Mod(right))
+		}
+	case "/":
+		{
+			return evaluateAndReturn(left.Div(right))
 		}
 	}
 
@@ -624,7 +637,10 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 			}
 
 			// we should not panic buana in this system
-			panic(fmt.Errorf("Invalid operation %#v", _node))
+			return nil, ExceptionNode{
+				Type:    INVALID_OPERATION_EXCEPTION,
+				Message: fmt.Sprintf("Invalid operation %#v", _node),
+			}
 		}
 	case FunctionDecl:
 		{
@@ -639,6 +655,17 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 		}
 	case FunctionCall:
 		{
+			// ideally we are using the top level scope but not for namespaces
+			// how tf are we going to solve this buana
+			// we need a way to inject a context here --> thats what it is
+			// how will it work --> set a global pointer to sth
+			// node.Name should not be a string it should be an interface i think
+			// so that we can call it correctly
+			/*
+				print(name.juma)
+				name.juma(7,8) --> inject the context here and start using them
+			*/
+
 			function, err := eval.symbolsTable.GetFromContext(_node.Name)
 
 			if err != nil {
@@ -704,9 +731,11 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 			var returnValue interface{}
 			var exception ExceptionNode
 
+			// we are pushing the scopes here
 			eval.symbolsTable.PushContext()
 			defer eval.symbolsTable.PopContext()
 
+			// TODO: make this code DRY laters
 			switch _function_decl_ := _function.Value.(type) {
 			case FunctionDecl:
 				{
@@ -731,20 +760,20 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 
 						switch res.(type) {
 						case AnonymousFunction:
-							{
-								valueType = FUNCTION
-							}
+							valueType = FUNCTION
 						case ArrayNode:
-							{
-								valueType = ARRAY
-							}
+							valueType = ARRAY
 						}
 
+						// we push to the context here --> ideally we should have a way to
 						eval.symbolsTable.PushToContext(Param.Key, SymbolTableValue{
 							Type:  valueType,
 							Value: res,
 						})
 					}
+
+					// push all the args to the new scope here -> we should switch right here
+					// i think or am wrong i dunno
 
 					// this is the place we are executing the functions
 					returnValue, exception = eval.executeFunctionCode(_function_decl_.Code)
@@ -765,6 +794,32 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 							Type:    ARITY_EXCEPTION,
 							Message: fmt.Sprintf("'%s' expected %d args but only %d args given", _node.Name, _function_decl_.ParamCount, _node.ArgCount),
 						}
+					}
+
+					// push the function args into the current scope
+					for _, Param := range _function_decl_.Params {
+						// find the _args and push them into the current
+						// if we walk we find the values
+						res, exception := eval.walkTree(_node.Args[Param.Position])
+
+						if exception.Type != NO_EXCEPTION {
+							return nil, exception
+						}
+
+						valueType := VALUE
+
+						switch res.(type) {
+						case AnonymousFunction:
+							valueType = FUNCTION
+						case ArrayNode:
+							valueType = ARRAY
+						}
+
+						// we push to the context here --> ideally we should have a way to
+						eval.symbolsTable.PushToContext(Param.Key, SymbolTableValue{
+							Type:  valueType,
+							Value: res,
+						})
 					}
 
 					returnValue, exception = eval.executeFunctionCode(_function_decl_.Code)
@@ -788,7 +843,9 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 		}
 	case CommentNode:
 		{
-			return _node, ExceptionNode{Type: NO_EXCEPTION}
+			// we dont return a comment node for now just assume it
+			// we dont care about the comment
+			return nil, ExceptionNode{Type: NO_EXCEPTION}
 		}
 	case ArrayAccessorNode:
 		{
@@ -849,7 +906,13 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 		}
 	case Assignment:
 		{
-			_value, _ := eval.walkTree(_node.Rvalue)
+			_value, _exception := eval.walkTree(_node.Rvalue)
+
+			// if the _exception is not
+			if _exception.Type != NO_EXCEPTION {
+				return nil, _exception
+			}
+
 			_type := VALUE
 
 			switch _value.(type) {
@@ -864,7 +927,7 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 			}
 
 			switch _node.Type {
-			case ASSIGNMENT:
+			case ASSIGNMENT, CONST_ASSIGNMENT:
 				{
 					eval.symbolsTable.PushToContext(_node.Lvalue, SymbolTableValue{
 						Type:  _type,
@@ -873,6 +936,8 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 				}
 			case REASSIGNMENT:
 				{
+					// check for the constants in the parser
+					// check here if the value is a constant just return an exception
 					eval.symbolsTable.PushToParentContext(_node.Lvalue, SymbolTableValue{
 						Type:  _type,
 						Value: _value,
@@ -882,7 +947,8 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 		}
 	case Import:
 		{
-			eval.loadModule(_node.FileName)
+			// we need to pass back the exception
+			return nil, eval.loadModule(_node.FileName)
 		}
 	case ConditionNode:
 		{
@@ -918,7 +984,6 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 					return Compare(&_lhs_, _node.Operator, _rhs)
 				}
 			default:
-				// fmt.Errorf("%#v does not implement the Comparison interface", _lhs_)
 				return nil, ExceptionNode{
 					Type:    INVALID_OPERATION_EXCEPTION,
 					Message: fmt.Sprintf("%#v does not implement the Comparison interface", _lhs_),
@@ -927,7 +992,6 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 		}
 	default:
 		{
-			// fmt.Println(_node)
 			return nil, ExceptionNode{
 				Type:    INVALID_NODE_EXCEPTION,
 				Message: fmt.Sprintf("Uknown node %#v", _node),

@@ -36,9 +36,7 @@ func main() {
 				return
 			}
 
-			fmt.Println(
-				Interpreter(getFileData(*fileName)),
-			)
+			Interpreter(getFileData(*fileName))
 		}
 	case "i":
 		{
@@ -56,7 +54,7 @@ func main() {
 			switch *operation {
 			case "e":
 				{
-					fmt.Println(literalParser.ExecuteLiteralCode())
+					literalParser.ExecuteLiteralCode()
 				}
 			case "d":
 				{

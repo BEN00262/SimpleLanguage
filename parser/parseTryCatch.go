@@ -40,7 +40,7 @@ func (parser *Parser) _parseBlock() (block []interface{}) {
 }
 
 func (parser *Parser) parseTryCatchBlock() interface{} {
-	parser.pushToParsingState(FUNCTION_STATE)
+	parser.pushToParsingState(TRY_CATCH_STATE)
 	defer parser.popFromParsingState()
 
 	parser.IsExpectedEatElsePanic(

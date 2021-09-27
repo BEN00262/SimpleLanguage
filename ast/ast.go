@@ -45,6 +45,12 @@ func (ast *AST) AppendToFinalString(content string) {
 	ast.String += content
 }
 
+type ASTWalker interface {
+	// what happens is we get the node ( type, value )
+}
+
+// what the f are we gonna do ---> start something here
+
 func (ast *AST) _walk(child interface{}) string {
 	// start the walking of the AST and printing it
 	switch _node := child.(type) {
