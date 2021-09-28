@@ -50,6 +50,10 @@ func (eval *Evaluator) loadModule(module Import) ExceptionNode {
 	// find a way to pass the values along
 	// check if the module has a .happ extension if not add it
 	if filepath.Ext(module.FileName) != ".happ" {
+		if module.Alias == "" {
+			module.Alias = module.FileName
+		}
+
 		// append that
 		module.FileName += ".happ"
 	}

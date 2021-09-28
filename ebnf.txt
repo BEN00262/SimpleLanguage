@@ -1,13 +1,12 @@
 program := statementSequnce
-statementSequence := [ statements ]*
-statements := include_stmts | assignments | expression | ifstatements | whilestatements | caseStatement | funcstatements  | funcCall | class_stmt
-include_stmts := @include ident
+statementSequence := [ statements | expression ]*
+statements := import_statement | assignments | expression | ifstatements | whilestatements | caseStatement | funcstatements  | funcCall | class_stmt
+import_statement := 'import' ident ['as' ident | '*']
 class_stmt := 'class' ident [funcStatements]* 'endclass'
 caseStatement := 'SWITCH' ident ['CASE' stetmentSequnce 'ENDCASE']*['DEFAULT' statementSequnce 'ENDDEFAULT']  'ENDSWITCH'
 funcCall := ident '(' args ')'
-ifstatements := IF condition THEN statementSequence [ELSE statementSequence] ENDIF
-whilestatements := WHILE condition DO statementSequnce ENDWHILE
-funcstatements := FUNC ident'(' args ')'  statementSequnce [RETURN expression]? ENDFUNC
+ifstatements := 'if' condition '{' statementSequence ['else' statementSequence] '}'
+funcstatements := 'fun' ident'(' args ')' '{'  statementSequnce ['return' expression]? '}'
 assignments := var_decl '=' [ expresssion | '[' vals ']' ]
 var_decl := ident | '#'ident
 vals := val [,val]*

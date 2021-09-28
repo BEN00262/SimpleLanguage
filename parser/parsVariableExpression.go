@@ -107,9 +107,7 @@ func (parser *Parser) parseVariableExpression() interface{} {
 	}
 
 	// this is the other stuff right here
-	object := ObjectAccessor{
-		Parent: _currentToken.Value.(string),
-	}
+	object := ObjectAccessor{Parent: _currentToken.Value.(string)}
 
 	if IsTypeAndValue(parser.CurrentToken(), SQUARE_BRACKET, "[") {
 		return parser.parseArrayIndexing(object)

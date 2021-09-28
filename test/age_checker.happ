@@ -1,5 +1,8 @@
-import "factorial" as sample
+#g
+fun simple() {
+    return 7 + 888888990
+}
 
 print(
-    sample.sample()
+    simple()
 )

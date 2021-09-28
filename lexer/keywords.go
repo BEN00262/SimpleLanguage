@@ -10,7 +10,6 @@ const (
 	BREAK     = "break"
 	RETURN    = "return"
 	NIL       = "nil"
-	MODULE    = "module"
 	IMPORT    = "import"
 	AS        = "as"
 	EXPORT    = "export"

@@ -23,15 +23,13 @@ func (parser *Parser) ParseIfStatement() interface{} {
 
 	var elseBodies []interface{}
 
-	// expect } --> closes the then block
 	parser.IsExpectedEatElsePanic(
 		parser.CurrentToken(),
 		CURLY_BRACES, "}",
 		"Expected a '}'",
-	) // we only eat upto what we think is right
+	)
 
 	if IsTypeAndValue(parser.CurrentToken(), KEYWORD, ELSE) {
-		// eat the else keyword
 		parser.eatToken()
 
 		if IsTypeAndValue(parser.CurrentToken(), KEYWORD, IF) {

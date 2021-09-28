@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"math/big"
 	"strings"
 
 	. "github.com/BEN00262/simpleLang/exceptions"
@@ -56,8 +57,8 @@ type ExpressionNode struct {
 
 /*
 	type Getter interface {
-		Get(index int) interface{}
-		Range(start int, end int) interface{}
+		Get(index int64) interface{}
+		Range(start int64, end int64) interface{}
 	}
 */
 
@@ -66,8 +67,7 @@ type ExceptionNode struct {
 	Message string
 }
 
-func (exception ExceptionNode) Get(index int) interface{} {
-	// o for the type and 1 for the message
+func (exception ExceptionNode) Get(index int64) interface{} {
 	if index == 0 {
 		return StringNode{
 			Value: exception.Type,
@@ -82,8 +82,10 @@ func (exception ExceptionNode) Get(index int) interface{} {
 	return NilNode{}
 }
 
-func (exception ExceptionNode) Range(start int, end int) interface{} {
-	return NilNode{}
+func (exception ExceptionNode) Range(start int64, end int64) interface{} {
+	return ExceptionNode{
+		Type: INVALID_OPERATION_EXCEPTION,
+	}
 }
 
 // generate jump the state to somewhere
@@ -136,8 +138,8 @@ type Countable interface {
 }
 
 type Getter interface {
-	Get(index int) interface{}
-	Range(start int, end int) interface{}
+	Get(index int64) interface{}
+	Range(start int64, end int64) interface{}
 }
 
 type AccessorType = int
@@ -164,7 +166,7 @@ type ArrayNode struct {
 
 func (array ArrayNode) Length() NumberNode {
 	return NumberNode{
-		Value: len(array.Elements),
+		Value: *big.NewInt(int64(len(array.Elements))),
 	}
 }
 
@@ -178,10 +180,13 @@ func (array ArrayNode) Get(index int) interface{} {
 }
 
 // get a range
-func (array ArrayNode) Range(start int, end int) interface{} {
-	// how tf do we implement this return a
+func (array ArrayNode) Range(start int64, end int64) interface{} {
+	arrayLength := array.Length().Value
+	_startCmp := arrayLength.Cmp(big.NewInt(start))
+	_endCmp := arrayLength.Cmp(big.NewInt(end))
+
 	// check for the constraints
-	if (start < 0 || start > array.Length().Value) || (start < 0 || start > array.Length().Value) {
+	if start < 0 || _startCmp == 1 || end < 0 || _endCmp == 1 {
 		return NilNode{}
 	}
 
@@ -204,12 +209,12 @@ func (array *ArrayNode) Pop() interface{} {
 	return _last_item_
 }
 
-func (array *ArrayNode) InsertAt(index int, value interface{}) {
+func (array *ArrayNode) InsertAt(index int64, value interface{}) {
 	if len(array.Elements) == 0 {
 		return
 	}
 
-	if index >= 0 && index < len(array.Elements) {
+	if index >= 0 && index < int64(len(array.Elements)) {
 		array.Elements[index] = value
 	}
 }
@@ -443,8 +448,9 @@ type ArthOp interface {
 
 // this implements the Equals interface
 // this should not be an int ( use float64 laters )
+// this should be a big integer thing
 type NumberNode struct {
-	Value int
+	Value big.Int
 }
 
 // implementing arithmetic operations
@@ -455,7 +461,7 @@ func (number *NumberNode) Add(right interface{}) interface{} {
 		{
 			// just add the numbers
 			return NumberNode{
-				Value: number.Value + _right.Value,
+				Value: *number.Value.Add(&number.Value, &_right.Value),
 			}
 		}
 	case StringNode:
@@ -482,7 +488,7 @@ func (number *NumberNode) Sub(right interface{}) interface{} {
 		{
 			// just add the numbers
 			return NumberNode{
-				Value: number.Value - _right.Value,
+				Value: *number.Value.Sub(&number.Value, &_right.Value),
 			}
 		}
 	}
@@ -500,7 +506,7 @@ func (number *NumberNode) Mod(right interface{}) interface{} {
 	switch _right := right.(type) {
 	case NumberNode:
 		{
-			if _right.Value == 0 {
+			if _right.Value.Cmp(big.NewInt(0)) == 0 {
 				// DIVISION_BY_ZERO_EXCEPTION
 				return ExceptionNode{
 					Type:    DIVISION_BY_ZERO_EXCEPTION,
@@ -510,7 +516,7 @@ func (number *NumberNode) Mod(right interface{}) interface{} {
 
 			// just add the numbers
 			return NumberNode{
-				Value: number.Value % _right.Value,
+				Value: *number.Value.Mod(&number.Value, &_right.Value),
 			}
 		}
 	}
@@ -529,7 +535,7 @@ func (number *NumberNode) Div(right interface{}) interface{} {
 	case NumberNode:
 		{
 			// if the _right value is zero throw a divide by zero exception
-			if _right.Value == 0 {
+			if _right.Value.Cmp(big.NewInt(0)) == 0 {
 				// DIVISION_BY_ZERO_EXCEPTION
 				return ExceptionNode{
 					Type:    DIVISION_BY_ZERO_EXCEPTION,
@@ -539,7 +545,7 @@ func (number *NumberNode) Div(right interface{}) interface{} {
 
 			// just add the numbers
 			return NumberNode{
-				Value: number.Value / _right.Value,
+				Value: *number.Value.Div(&number.Value, &_right.Value),
 			}
 		}
 	}
@@ -559,7 +565,7 @@ func (number *NumberNode) Mul(right interface{}) interface{} {
 		{
 			// just add the numbers
 			return NumberNode{
-				Value: number.Value * _right.Value,
+				Value: *number.Value.Mul(&number.Value, &_right.Value),
 			}
 		}
 	}
@@ -576,7 +582,7 @@ func (numberNode *NumberNode) IsEqualTo(value interface{}) BoolNode {
 	switch _rvalue := value.(type) {
 	case NumberNode:
 		{
-			if numberNode.Value == _rvalue.Value {
+			if numberNode.Value.Cmp(&_rvalue.Value) == 0 {
 				return BoolNode{
 					Value: 1,
 				}
@@ -593,7 +599,7 @@ func (numberNode *NumberNode) IsGreaterThan(value interface{}) BoolNode {
 	switch _rvalue := value.(type) {
 	case NumberNode:
 		{
-			if numberNode.Value > _rvalue.Value {
+			if numberNode.Value.Cmp(&_rvalue.Value) == 1 {
 				return BoolNode{
 					Value: 1,
 				}
@@ -611,7 +617,8 @@ func (numberNode *NumberNode) IsGreaterThanOrEqualsTo(value interface{}) BoolNod
 	switch _rvalue := value.(type) {
 	case NumberNode:
 		{
-			if numberNode.Value >= _rvalue.Value {
+			_comp := numberNode.Value.Cmp(&_rvalue.Value)
+			if _comp == 1 || _comp == 0 {
 				return BoolNode{
 					Value: 1,
 				}
@@ -628,7 +635,7 @@ func (numberNode *NumberNode) IsLessThan(value interface{}) BoolNode {
 	switch _rvalue := value.(type) {
 	case NumberNode:
 		{
-			if numberNode.Value < _rvalue.Value {
+			if numberNode.Value.Cmp(&_rvalue.Value) == -1 {
 				return BoolNode{
 					Value: 1,
 				}
@@ -646,7 +653,8 @@ func (numberNode *NumberNode) IsLessThanOrEqualsTo(value interface{}) BoolNode {
 	switch _rvalue := value.(type) {
 	case NumberNode:
 		{
-			if numberNode.Value <= _rvalue.Value {
+			_cmp := numberNode.Value.Cmp(&_rvalue.Value)
+			if _cmp == -1 || _cmp == 0 {
 				return BoolNode{
 					Value: 1,
 				}
@@ -691,7 +699,7 @@ func (stringNode *StringNode) Mul(right interface{}) interface{} {
 	case NumberNode:
 		{
 			return StringNode{
-				Value: strings.Repeat(stringNode.Value, _right.Value),
+				Value: strings.Repeat(stringNode.Value, int(_right.Value.Int64())),
 			}
 		}
 	}
@@ -726,14 +734,18 @@ func (stringNode *StringNode) Sub(right interface{}) interface{} {
 
 // make the string indexeable and countable
 func (stringNode StringNode) Length() NumberNode {
+	// the number node is a big integer stuff :)
 	return NumberNode{
-		Value: len(stringNode.Value),
+		Value: *big.NewInt(int64(len(stringNode.Value))),
 	}
 }
 
 // make it indexeable
-func (stringNode StringNode) Get(index int) interface{} {
-	if index < 0 || index > stringNode.Length().Value-1 {
+func (stringNode StringNode) Get(index int64) interface{} {
+	result := stringNode.Length().Value
+	result = *result.Sub(&result, big.NewInt(1))
+
+	if index < 0 || result.Cmp(big.NewInt(index)) == -1 {
 		return NilNode{}
 	}
 
@@ -743,10 +755,13 @@ func (stringNode StringNode) Get(index int) interface{} {
 }
 
 // get a range
-func (stringNode StringNode) Range(start int, end int) interface{} {
-	// how tf do we implement this return a
+func (stringNode StringNode) Range(start int64, end int64) interface{} {
+	arrayLength := stringNode.Length().Value
+	_startCmp := arrayLength.Cmp(big.NewInt(start))
+	_endCmp := arrayLength.Cmp(big.NewInt(end))
+
 	// check for the constraints
-	if (start < 0 || start > stringNode.Length().Value) || (start < 0 || start > stringNode.Length().Value) {
+	if start < 0 || _startCmp == 1 || end < 0 || _endCmp == 1 {
 		return NilNode{}
 	}
 

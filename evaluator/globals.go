@@ -34,7 +34,8 @@ func _print(value interface{}) string {
 		}
 	case NumberNode:
 		{
-			return fmt.Sprintf("%d", _value.Value)
+			// find the string stuff and then use it
+			return fmt.Sprintf("%v", _value.Value.Text(10))
 		}
 	case BoolNode:
 		{
@@ -130,7 +131,7 @@ var (
 							switch _index := _index_.(type) {
 							case NumberNode:
 								{
-									_array_.InsertAt(_index.Value, _value_)
+									_array_.InsertAt(_index.Value.Int64(), _value_)
 									return _array_, ExceptionNode{Type: NO_EXCEPTION}
 								}
 							}
@@ -175,6 +176,8 @@ var (
 						_type = "number"
 					case BoolNode:
 						_type = "boolean"
+					case FunctionDecl:
+						_type = "function"
 					case ExceptionNode:
 						// we should have an exception type
 						// should we return the actual type in the execption
@@ -211,7 +214,6 @@ var (
 				},
 			},
 		},
-
 		// print
 		"print": SymbolTableValue{
 			Type: EXTERNALFUNC,
@@ -219,6 +221,10 @@ var (
 				Name:       "print",
 				ParamCount: 1,
 				Function: func(values ...*interface{}) (interface{}, ExceptionNode) {
+
+					// read and write ( fd, format, data )
+					// pass the data to be printed down here
+					// how the tf are we going to do this
 
 					for _, _value_ := range values {
 						fmt.Printf("%s", _print(*_value_))

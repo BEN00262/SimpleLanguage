@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"math/big"
 	"strings"
 
 	. "github.com/BEN00262/simpleLang/lexer"
@@ -167,11 +168,8 @@ func (parser *Parser) _parseFactor() interface{} {
 		parser.eatToken()
 
 		return NumberNode{
-			Value: _currentToken.Value.(int),
+			Value: _currentToken.Value.(big.Int),
 		}
-
-		// parse an array here and then return its type and stuff
-		// we have a shit stuff here boys
 	} else if IsTypeAndValue(_currentToken, SQUARE_BRACKET, "[") {
 		// start parsing the array here
 		// consume the first square bracke
@@ -391,6 +389,10 @@ func (parser *Parser) _parse(token Token) interface{} {
 
 					_expression := parser._parseExpression()
 
+					if _expression == nil {
+						_expression = NilNode{}
+					}
+
 					return ReturnNode{
 						Expression: _expression,
 					}
@@ -444,11 +446,6 @@ func (parser *Parser) _parse(token Token) interface{} {
 						Lvalue: lvalue,
 						Rvalue: rvalue,
 					}
-				}
-			case MODULE:
-				{
-					// we dont eat anything we just forward it
-					return parser.ParseModule()
 				}
 			case IMPORT:
 				{

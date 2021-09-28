@@ -406,6 +406,7 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 		}
 	case ReturnNode:
 		{
+			//
 			_ret, exception := eval.walkTree(_node.Expression)
 
 			if exception.Type != NO_EXCEPTION {
@@ -785,6 +786,8 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 						switch _ret_ := res.(type) {
 						case AnonymousFunction:
 							valueType = FUNCTION
+						case FunctionDecl:
+							valueType = FUNCTION
 						case ArrayNode:
 							valueType = ARRAY
 						case SymbolTableValue:
@@ -941,22 +944,19 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 			// we should also check the type of the stuff
 
 			if _index_, ok := _index_of_element_.(NumberNode); ok {
-				// an array is an accessor thing
-				// _node.Array --> we need a way to get the value back
-				// _array_, err := eval.symbolsTable.GetFromContext(_node.Array)
-
-				_array_, _exception := eval.walkTree(_node.Array)
+				_array, _exception := eval.walkTree(_node.Array)
 
 				if _exception.Type != NO_EXCEPTION {
 					return nil, _exception
 				}
 
-				if _implemented, ok := _array_.(Getter); ok {
+				_array_ := _array.(SymbolTableValue)
 
+				if _implemented, ok := _array_.Value.(Getter); ok {
 					switch _node.Type {
 					case NORMAL:
 						{
-							return _implemented.Get(_index_.Value), ExceptionNode{Type: NO_EXCEPTION}
+							return _implemented.Get(_index_.Value.Int64()), ExceptionNode{Type: NO_EXCEPTION}
 						}
 					case RANGE:
 						{
@@ -967,7 +967,7 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 							}
 
 							if _eIndex_, ok := _end_index_.(NumberNode); ok {
-								return _implemented.Range(_index_.Value, _eIndex_.Value), ExceptionNode{Type: NO_EXCEPTION}
+								return _implemented.Range(_index_.Value.Int64(), _eIndex_.Value.Int64()), ExceptionNode{Type: NO_EXCEPTION}
 							}
 						}
 					}
@@ -1077,9 +1077,15 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 		}
 	default:
 		{
+			/*
+				ExceptionNode{
+					Type:    INVALID_NODE_EXCEPTION,
+					Message: fmt.Sprintf("Unknown node %#v", _node),
+				}
+			*/
+			// throw errors
 			return nil, ExceptionNode{
-				Type:    INVALID_NODE_EXCEPTION,
-				Message: fmt.Sprintf("Uknown node %#v", _node),
+				Type: NO_EXCEPTION,
 			}
 		}
 	}

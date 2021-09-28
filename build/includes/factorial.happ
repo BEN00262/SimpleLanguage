@@ -15,7 +15,7 @@ expose fun fibonacci(number) {
         return number
     }
 
-    return fibonnaci(number - 1) + fibonnaci(number - 2)
+    return fibonacci(number - 1) + fibonacci(number - 2)
 }
 
 expose def array = 200

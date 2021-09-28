@@ -10,12 +10,12 @@ func ToDaisy(value interface{}) interface{} {
 	_valueKind := reflect.ValueOf(value)
 
 	switch _valueKind.Kind() {
-	case reflect.Int:
-		{
-			return NumberNode{
-				Value: int(_valueKind.Int()),
-			}
-		}
+	// case reflect.Int:
+	// 	{
+	// 		return NumberNode{
+	// 			Value: _valueKind.Int(),
+	// 		}
+	// 	}
 	case reflect.String:
 		{
 			return StringNode{

@@ -4,8 +4,9 @@ var (
 	KEYWORDS = []string{
 		FUNC, TRUE,
 		FALSE, FOR, IF, ELSE,
-		BREAK, RETURN, NIL, MODULE,
-		IMPORT, AS, EXPORT, DEF, TRY, CATCH, FINALLY, RAISE, CONST, EXPOSE, NAMESPACE,
+		BREAK, RETURN, NIL, IMPORT,
+		AS, EXPORT, DEF, TRY, CATCH,
+		FINALLY, RAISE, CONST, EXPOSE, NAMESPACE,
 	}
 )
 
@@ -30,6 +31,9 @@ const (
 )
 
 type Token struct {
-	Type  TokenType
-	Value interface{}
+	Type        TokenType
+	Line        int
+	ColumnStart int // start of the column
+	ColumnEnd   int // end of the column
+	Value       interface{}
 }
