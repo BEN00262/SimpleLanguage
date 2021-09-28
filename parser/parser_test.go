@@ -16,7 +16,7 @@ func TestParsing(t *testing.T) {
 		{Type: NUMBER, Value: "90"},
 	}
 
-	parser := InitParser(tokens)
+	parser := InitParser(tokens, nil)
 	programNode := parser.Parse()
 
 	t.Error(reflect.TypeOf(programNode))

@@ -209,7 +209,7 @@ func (eval *Evaluator) _stringInterpolate(stringNode StringNode) (StringNode, Ex
 			case NumberNode:
 				{
 					// do the work and change the values
-					_interpolated_string_ = fmt.Sprintf("%d", _value.Value)
+					_interpolated_string_ = _value.Value.Text(10)
 				}
 			case StringNode:
 				{

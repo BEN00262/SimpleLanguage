@@ -1,7 +1,6 @@
 package lexer
 
 import (
-	"math/big"
 	"strings"
 	"unicode"
 )
@@ -18,6 +17,7 @@ func Contains(array []string, str string) bool {
 
 type Lexer struct {
 	code            string
+	SplitCode       []string
 	tokens          []Token
 	currentPosition int
 	line            int // get the line and start it
@@ -28,6 +28,7 @@ func InitLexer(code string) *Lexer {
 	return &Lexer{
 		code:            code,
 		currentPosition: 0,
+		SplitCode:       strings.Split(code, "\n"),
 	}
 }
 
@@ -44,16 +45,18 @@ func (lexer *Lexer) eatLexeme() {
 }
 
 // this appends the token to the system
-func (lexer *Lexer) AppendToken(tokenType TokenType, value interface{}, colStart int, colEnd int) {
+func (lexer *Lexer) AppendToken(tokenType TokenType, value interface{}, span int) {
 
 	// use a column span
 	lexer.tokens = append(lexer.tokens, Token{
 		Type:        tokenType,
 		Line:        lexer.line,
 		Value:       value,
-		ColumnStart: colStart,
-		ColumnEnd:   colEnd,
+		ColumnStart: lexer.column,
+		Span:        span,
 	})
+
+	lexer.column += span
 }
 
 func isValidVariableName(lexeme rune, continuous bool) bool {
@@ -92,12 +95,7 @@ func (lexer *Lexer) Lex() []Token {
 				tokenType = KEYWORD
 			}
 
-			lexer.AppendToken(tokenType, _variable, _currentPosition, lexer.currentPosition-1)
-
-			// tokens = append(tokens, Token{
-			// 	Type:  tokenType,
-			// 	Value: _variable,
-			// })
+			lexer.AppendToken(tokenType, _variable, len(_variable))
 			continue
 		} else if unicode.IsDigit(lexeme) {
 			_start_position_ := lexer.currentPosition
@@ -112,26 +110,14 @@ func (lexer *Lexer) Lex() []Token {
 
 			lexer.currentPosition -= 1
 
-			// we should use a different value not an integer
-			_number, isSuccess := new(big.Int).SetString(_number_, 0)
-
-			if !isSuccess {
-				panic("Failed to convert number")
-			}
-
-			lexer.AppendToken(NUMBER, *_number, _start_position_, lexer.currentPosition-1)
-
-			// tokens = append(tokens, Token{
-			// 	Type:  NUMBER,
-			// 	Value: *_number,
-			// })
+			lexer.AppendToken(NUMBER, _number_, len(_number_))
 		} else if lexeme == ';' {
 			// tokens = append(tokens, Token{
 			// 	Type:  SEMI_COLON,
 			// 	Value: ";",
 			// })
 
-			lexer.AppendToken(SEMI_COLON, ";", lexer.currentPosition, lexer.currentPosition)
+			lexer.AppendToken(SEMI_COLON, ";", 1)
 		} else if lexeme == '!' {
 			_current_column_ := lexer.currentPosition
 			// _peakAheadLexeme := lexer.peakAhead()
@@ -144,12 +130,12 @@ func (lexer *Lexer) Lex() []Token {
 				// 	Value: "!=",
 				// })
 
-				lexer.AppendToken(CONDITION, "!=", _current_column_, lexer.currentPosition-1)
+				lexer.AppendToken(CONDITION, "!=", lexer.currentPosition-1-_current_column_)
 			}
 
 		} else if lexeme == '=' {
 			// check the next if its a another =
-			_current_column_ := lexer.currentPosition
+			// _current_column_ := lexer.currentPosition
 			// return the condition token
 			// _peakAheadLexeme := lexer.peakAhead()
 
@@ -161,14 +147,14 @@ func (lexer *Lexer) Lex() []Token {
 				// 	Value: "==",
 				// })
 
-				lexer.AppendToken(CONDITION, "==", _current_column_, lexer.currentPosition)
+				lexer.AppendToken(CONDITION, "==", 2)
 			} else {
 				// tokens = append(tokens, Token{
 				// 	Type:  ASSIGN,
 				// 	Value: "=",
 				// })
 
-				lexer.AppendToken(ASSIGN, "=", _current_column_, _current_column_)
+				lexer.AppendToken(ASSIGN, "=", 1)
 			}
 		} else if strings.Contains(`"'`, string(lexeme)) {
 			// we do have the starting point go on until we reach the end of the strings
@@ -182,7 +168,7 @@ func (lexer *Lexer) Lex() []Token {
 
 			_string_value_ := lexer.code[_initial_position:lexer.currentPosition]
 
-			lexer.AppendToken(STRING, _string_value_, _initial_position-1, lexer.currentPosition-1)
+			lexer.AppendToken(STRING, _string_value_, lexer.currentPosition-_initial_position-2)
 			// tokens = append(tokens, Token{
 			// 	Type:  STRING,
 			// 	Value: _string_value_,
@@ -190,7 +176,6 @@ func (lexer *Lexer) Lex() []Token {
 
 		} else if Contains([]string{">", "<"}, string(lexeme)) {
 			_peakAheadLexeme := lexer.peakAhead()
-			_current_column_ := lexer.currentPosition
 
 			if _peakAheadLexeme == '=' {
 				lexer.eatLexeme()
@@ -200,14 +185,14 @@ func (lexer *Lexer) Lex() []Token {
 				// 	Value: string(lexeme) + string(_peakAheadLexeme),
 				// })
 
-				lexer.AppendToken(CONDITION, string(lexeme)+string(_peakAheadLexeme), _current_column_, lexer.currentPosition)
+				lexer.AppendToken(CONDITION, string(lexeme)+string(_peakAheadLexeme), 2)
 			} else {
 				// tokens = append(tokens, Token{
 				// 	Type:  CONDITION,
 				// 	Value: string(lexeme),
 				// })
 
-				lexer.AppendToken(CONDITION, string(lexeme), _current_column_, lexer.currentPosition)
+				lexer.AppendToken(CONDITION, string(lexeme), 1)
 			}
 		} else if strings.Contains("+-*/%", string(lexeme)) {
 			// tokens = append(tokens, Token{
@@ -215,14 +200,14 @@ func (lexer *Lexer) Lex() []Token {
 			// 	Value: string(lexeme),
 			// })
 
-			lexer.AppendToken(OPERATOR, string(lexeme), lexer.currentPosition, lexer.currentPosition)
+			lexer.AppendToken(OPERATOR, string(lexeme), 1)
 		} else if lexeme == '.' {
 			// tokens = append(tokens, Token{
 			// 	Type:  DOT,
 			// 	Value: ".",
 			// })
 
-			lexer.AppendToken(DOT, ".", lexer.currentPosition, lexer.currentPosition)
+			lexer.AppendToken(DOT, ".", 1)
 		} else if lexeme == ':' {
 			// return the lexeme
 			// tokens = append(tokens, Token{
@@ -230,7 +215,7 @@ func (lexer *Lexer) Lex() []Token {
 			// 	Value: ":",
 			// })
 
-			lexer.AppendToken(COLON, ":", lexer.currentPosition, lexer.currentPosition)
+			lexer.AppendToken(COLON, ":", 1)
 		} else if strings.Contains("[]", string(lexeme)) {
 			// return the token now
 			// tokens = append(tokens, Token{
@@ -238,7 +223,7 @@ func (lexer *Lexer) Lex() []Token {
 			// 	Value: string(lexeme),
 			// })
 
-			lexer.AppendToken(SQUARE_BRACKET, string(lexeme), lexer.currentPosition, lexer.currentPosition)
+			lexer.AppendToken(SQUARE_BRACKET, string(lexeme), 1)
 		} else if lexeme == ',' {
 			// add the comma tokens for this very reason
 			// tokens = append(tokens, Token{
@@ -246,10 +231,12 @@ func (lexer *Lexer) Lex() []Token {
 			// 	Value: ",",
 			// })
 
-			lexer.AppendToken(COMMA, ",", lexer.currentPosition, lexer.currentPosition)
+			lexer.AppendToken(COMMA, ",", 1)
 		} else if lexeme == '\n' {
 			lexer.line += 1
 			lexer.column = 0
+		} else if unicode.IsSpace(lexeme) {
+			lexer.column += 1
 		} else if lexeme == '#' {
 			lexer.eatLexeme()
 
@@ -272,7 +259,7 @@ func (lexer *Lexer) Lex() []Token {
 			// 	Value: _comment_,
 			// })
 
-			lexer.AppendToken(COMMENT, _comment_, _start_position_, lexer.currentPosition)
+			lexer.AppendToken(COMMENT, _comment_, lexer.currentPosition-_start_position_)
 
 		} else if strings.Contains("()", string(lexeme)) {
 			// tokens = append(tokens, Token{
@@ -280,14 +267,14 @@ func (lexer *Lexer) Lex() []Token {
 			// 	Value: string(lexeme),
 			// })
 
-			lexer.AppendToken(HALF_CIRCLE_BRACKET, string(lexeme), lexer.currentPosition, lexer.currentPosition)
+			lexer.AppendToken(HALF_CIRCLE_BRACKET, string(lexeme), 1)
 		} else if strings.Contains("{}", string(lexeme)) {
 			// tokens = append(tokens, Token{
 			// 	Type:  CURLY_BRACES,
 			// 	Value: string(lexeme),
 			// })
 
-			lexer.AppendToken(CURLY_BRACES, string(lexeme), lexer.currentPosition, lexer.currentPosition)
+			lexer.AppendToken(CURLY_BRACES, string(lexeme), 1)
 		}
 
 		lexer.currentPosition += 1

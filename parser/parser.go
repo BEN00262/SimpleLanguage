@@ -18,20 +18,23 @@ const (
 )
 
 // how the fuck will we do this
+// we should get a reference to the code for error reporting and stuff
 type Parser struct {
 	Tokens          []Token
+	ActualCode      []string
 	State           []ParsingState // push into this state
 	CurrentPosition int
 	TokensLength    int
 	ParsingError    string // this is showing the error and crashing this should a chan
 }
 
-func InitParser(tokens []Token) *Parser {
+func InitParser(tokens []Token, actualCode []string) *Parser {
 	return &Parser{
 		Tokens:          tokens,
 		CurrentPosition: 0,
 		State:           []ParsingState{INVALID_STATE},
 		TokensLength:    len(tokens),
+		ActualCode:      actualCode,
 	}
 }
 
@@ -167,8 +170,16 @@ func (parser *Parser) _parseFactor() interface{} {
 	} else if _currentToken.Type == NUMBER {
 		parser.eatToken()
 
+		_number, isSuccess := new(big.Int).SetString(_currentToken.Value.(string), 0)
+
+		if !isSuccess {
+			// show the number
+			parser.reportError(_currentToken)
+			panic("Failed to convert number")
+		}
+
 		return NumberNode{
-			Value: _currentToken.Value.(big.Int),
+			Value: *_number,
 		}
 	} else if IsTypeAndValue(_currentToken, SQUARE_BRACKET, "[") {
 		// start parsing the array here

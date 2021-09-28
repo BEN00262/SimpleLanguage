@@ -71,7 +71,7 @@ func (eval *Evaluator) loadModule(module Import) ExceptionNode {
 	}
 
 	lexer := InitLexer(string(importedModule))
-	parser := InitParser(lexer.Lex())
+	parser := InitParser(lexer.Lex(), lexer.SplitCode)
 
 	if module.Alias != "*" {
 		eval.symbolsTable.PushContext()
@@ -99,7 +99,7 @@ func (eval *Evaluator) loadModule(module Import) ExceptionNode {
 
 func (eval *Evaluator) _eval(codeString string) (result interface{}, exception ExceptionNode) {
 	lexer := InitLexer(codeString)
-	parser := InitParser(lexer.Lex())
+	parser := InitParser(lexer.Lex(), lexer.SplitCode)
 
 	for _, node := range parser.Parse().Nodes {
 

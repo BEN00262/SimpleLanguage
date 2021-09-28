@@ -1,8 +1,87 @@
-#g
-fun simple() {
-    return 7 + 888888990
+def VARIABLE = 0
+def NUMBER = 1
+def UNKNOWN = 2
+def OPERATOR = 3
+def EQUALS = 4
+
+def letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+fun IsLetter(char) {
+    for (def pos = 0; pos < len(letters); pos + 1) {
+        if letters[pos] == char {
+            return true
+        }
+    }
+
+    return false
 }
 
-print(
-    simple()
-)
+def numbers = "0123456789"
+
+fun IsNumber(number) {
+    for (def pos = 0; pos < len(numbers); pos + 1) {
+        if numbers[pos] == number {
+            return true
+        }
+    }
+
+    return false
+}
+
+def operators = "-+*"
+
+fun IsOperator(operator) {
+    for (def pos = 0; pos < len(operators); pos + 1) {
+        if operators[pos] == operator {
+            return true
+        }
+    }
+
+    return false
+}
+
+fun Lexer(code) {
+    def Tokens = []
+    def codeLength = len(code)
+
+    for (def pos = 0; pos < codeLength; pos + 1) {
+        def lexeme = code[pos]
+
+        if IsLetter(lexeme) {
+            def original = pos
+
+            for (IsLetter(code[pos])) {
+                pos = pos + 1
+            }
+
+            Tokens = push(Tokens, [VARIABLE, code[original:pos]])
+
+            if pos < codeLength - 1 {
+                pos = pos - 1
+            }
+        } else if IsNumber(lexeme) {
+            def original = pos
+
+            for (IsNumber(code[pos])) {
+                pos = pos + 1
+            }
+
+            Tokens = push(Tokens, [NUMBER, code[original:pos]])
+
+            if pos < codeLength - 1 {
+                pos = pos - 1
+            }
+        } else if IsOperator(lexeme) {
+            Tokens = push(Tokens, [OPERATOR, lexeme])
+        } else if lexeme == "=" {
+            Tokens = push(Tokens, [EQUALS, lexeme])
+        } else {
+            Tokens = push(Tokens, [UNKNOWN, lexeme])
+        }
+    }
+
+    return Tokens
+}
+
+def tokens = Lexer("name = 90")
+print(tokens)

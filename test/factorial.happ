@@ -1,9 +1,0 @@
-# this is a simple factorial function
-fun factorial(number) {
-    if number <= 1 {
-        return 1
-    }
-
-    # this is a return statement
-    return number * factorial(number - 1)
-}

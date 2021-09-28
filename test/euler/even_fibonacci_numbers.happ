@@ -17,4 +17,4 @@ fun evenFibNumbers(maxNumber) {
     print(sumOfEvenFibs)
 }
 
-evenFibNumbers(4000000)
+evenFibNumbers(40)

@@ -34,6 +34,6 @@ type Token struct {
 	Type        TokenType
 	Line        int
 	ColumnStart int // start of the column
-	ColumnEnd   int // end of the column
+	Span        int // end of the column
 	Value       interface{}
 }

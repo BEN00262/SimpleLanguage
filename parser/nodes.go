@@ -459,9 +459,10 @@ func (number *NumberNode) Add(right interface{}) interface{} {
 	switch _right := right.(type) {
 	case NumberNode:
 		{
+			number_copy := new(big.Int).Set(&number.Value)
 			// just add the numbers
 			return NumberNode{
-				Value: *number.Value.Add(&number.Value, &_right.Value),
+				Value: *number_copy.Add(number_copy, &_right.Value),
 			}
 		}
 	case StringNode:
@@ -486,9 +487,10 @@ func (number *NumberNode) Sub(right interface{}) interface{} {
 	switch _right := right.(type) {
 	case NumberNode:
 		{
+			number_copy := new(big.Int).Set(&number.Value)
 			// just add the numbers
 			return NumberNode{
-				Value: *number.Value.Sub(&number.Value, &_right.Value),
+				Value: *number_copy.Sub(number_copy, &_right.Value),
 			}
 		}
 	}
@@ -514,9 +516,12 @@ func (number *NumberNode) Mod(right interface{}) interface{} {
 				}
 			}
 
+			// create a copy and do the operation on it
+			number_copy := new(big.Int).Set(&number.Value)
+
 			// just add the numbers
 			return NumberNode{
-				Value: *number.Value.Mod(&number.Value, &_right.Value),
+				Value: *number_copy.Mod(number_copy, &_right.Value),
 			}
 		}
 	}
@@ -543,9 +548,11 @@ func (number *NumberNode) Div(right interface{}) interface{} {
 				}
 			}
 
+			number_copy := new(big.Int).Set(&number.Value)
+
 			// just add the numbers
 			return NumberNode{
-				Value: *number.Value.Div(&number.Value, &_right.Value),
+				Value: *number_copy.Div(number_copy, &_right.Value),
 			}
 		}
 	}
@@ -563,9 +570,10 @@ func (number *NumberNode) Mul(right interface{}) interface{} {
 	switch _right := right.(type) {
 	case NumberNode:
 		{
+			number_copy := new(big.Int).Set(&number.Value)
 			// just add the numbers
 			return NumberNode{
-				Value: *number.Value.Mul(&number.Value, &_right.Value),
+				Value: *number_copy.Mul(number_copy, &_right.Value),
 			}
 		}
 	}
