@@ -8,14 +8,32 @@ import (
 	. "github.com/BEN00262/simpleLang/exceptions"
 	. "github.com/BEN00262/simpleLang/lexer"
 	. "github.com/BEN00262/simpleLang/parser"
+	. "github.com/BEN00262/simpleLang/symbolstable"
 )
 
-// create a dependancy graph
+func (eval *Evaluator) _evaluateProgramNode(nodes []interface{}) ExceptionNode {
+	for _, node := range nodes {
+		_, exception := eval.walkTree(node)
 
-func (eval *Evaluator) loadModule(modulePath string) ExceptionNode {
+		if exception.Type != NO_EXCEPTION {
+			return exception
+		}
+	}
+
+	return ExceptionNode{Type: NO_EXCEPTION}
+}
+
+// create a dependancy graph
+type ImportModule struct {
+	context ContextValue
+}
+
+func (eval *Evaluator) loadModule(module Import) ExceptionNode {
 	// ensure the filename exists --> also check for errors in the lexer and the parser too
 	// have a * we dump to the global scope
 	// otherwise we namespace
+
+	// create push our own context then use it later
 
 	_basePath, err := os.Executable()
 
@@ -31,40 +49,48 @@ func (eval *Evaluator) loadModule(modulePath string) ExceptionNode {
 
 	// find a way to pass the values along
 	// check if the module has a .happ extension if not add it
-	if filepath.Ext(modulePath) != ".happ" {
+	if filepath.Ext(module.FileName) != ".happ" {
 		// append that
-		modulePath += ".happ"
+		module.FileName += ".happ"
 	}
 
 	// should find the actual root folder of the stuff then get the files from there
 
 	// system includes
-	module, err := ioutil.ReadFile(filepath.Join(filepath.Dir(_basePath), "includes", modulePath))
+	importedModule, err := ioutil.ReadFile(filepath.Join(filepath.Dir(_basePath), "includes", module.FileName))
 
 	if err != nil {
-		// we get the error code for not working here
-		// what happens for now we use the path in the current directory
-
 		return ExceptionNode{
 			Type:    MODULE_IMPORT_EXCEPTION,
 			Message: err.Error(),
 		}
 	}
 
-	// we redo this --> create a graph to prevent alot of shiets
-	// make these very fast ---> i think
-	lexer := InitLexer(string(module))
+	lexer := InitLexer(string(importedModule))
 	parser := InitParser(lexer.Lex())
 
-	for _, node := range parser.Parse().Nodes {
-		_, exception := eval.walkTree(node)
+	if module.Alias != "*" {
+		eval.symbolsTable.PushContext()
 
-		if exception.Type != NO_EXCEPTION {
-			return exception
+		_exception := eval._evaluateProgramNode(parser.Parse().Nodes)
+
+		if _exception.Type != NO_EXCEPTION {
+			return _exception
 		}
+
+		_module_context := eval.symbolsTable.GetTopContext()
+
+		eval.symbolsTable.PushToContext(module.Alias, SymbolTableValue{
+			Type: IMPORTED_MODULE,
+			Value: ImportModule{
+				context: _module_context,
+			},
+		})
+
+		return _exception
 	}
 
-	return ExceptionNode{Type: NO_EXCEPTION}
+	return eval._evaluateProgramNode(parser.Parse().Nodes)
 }
 
 func (eval *Evaluator) _eval(codeString string) (result interface{}, exception ExceptionNode) {

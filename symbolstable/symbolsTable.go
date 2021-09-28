@@ -15,6 +15,21 @@ func InitSymbolsTable() *SymbolsTable {
 	}
 }
 
+// create a method to literally copy a context to the top of the stack and increment the counter
+func (symbolsTable *SymbolsTable) CopyContextToTop(context ContextValue) {
+	// push to the top of the stuff
+	symbolsTable.CurrentPosition += 1
+	symbolsTable.Contexts = append(symbolsTable.Contexts, context)
+}
+
+// get the top context
+// we should have a sealed context or something
+func (symbolsTable *SymbolsTable) GetTopContext() ContextValue {
+	top := symbolsTable.Contexts[len(symbolsTable.Contexts)-1]
+	symbolsTable.PopContext()
+	return top
+}
+
 func (symbolsTable *SymbolsTable) PushContext() {
 	symbolsTable.CurrentPosition += 1
 	symbolsTable.Contexts = append(symbolsTable.Contexts, ContextValue{

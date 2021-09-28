@@ -24,6 +24,7 @@ type Comparison interface {
 // just dump the shiets in the current scope
 type Import struct {
 	FileName string
+	Alias    string
 }
 
 // module thing
@@ -106,6 +107,24 @@ type TryCatchNode struct {
 	Finally []interface{}
 }
 
+type IExportables interface {
+	IsExported() bool
+}
+
+// export visibilty node
+type ExportVisibilityNode struct {
+	// when wrapped with this u are exported my nigga
+	// this only works for functions declarations and constants --> check in the parser for adherence
+	Exported interface{}
+}
+
+// create a simple . properties thing
+// module.first.sample(78)
+type ObjectAccessor struct {
+	Parent string
+	Child  string // improve it later to support further lookups into the structure
+}
+
 // implements a len thing
 // and also can be looped i dont know how but i just know men
 
@@ -134,7 +153,7 @@ type ArrayAccessorNode struct {
 	// the array name --> should be an expression that resolves to an array stuff else throw an error
 	// the index into the array --> the expression should evaluate to a number node
 	Type     AccessorType
-	Array    string
+	Array    ObjectAccessor
 	Index    interface{} // ExpressionNode
 	EndIndex interface{} // also an expression
 }
@@ -214,6 +233,13 @@ type Assignment struct {
 	Type   AssignmentType
 	Lvalue string // will change this to an interface (something that evaluates to something in the symbols table)
 	Rvalue interface{}
+}
+
+func (assignment Assignment) IsExported() bool {
+	if assignment.Type != REASSIGNMENT {
+		return true
+	}
+	return false
 }
 
 // expression ( which returns a True or False )
@@ -375,9 +401,10 @@ type ExternalFunctionNode struct {
 	Function   ExternalFunction
 }
 
-// we need a map of the args
+// the name should not be a string it should be an ObjectAccessor that resolves to a string
+// handle accessors by all means or throw errors
 type FunctionCall struct {
-	Name     string
+	Name     ObjectAccessor
 	ArgCount int
 	Args     []interface{}
 }
@@ -387,6 +414,10 @@ type FunctionDecl struct {
 	ParamCount int
 	Params     []Param
 	Code       []interface{}
+}
+
+func (function FunctionDecl) IsExported() bool {
+	return true
 }
 
 type CommentNode struct {

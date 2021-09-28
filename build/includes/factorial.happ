@@ -1,15 +1,12 @@
-# this is a simple factorial function
-fun factorial(number) {
+expose fun factorial(number) {
     if number <= 1 {
         return 1
     }
 
-    # this is a return statement
     return number * factorial(number - 1)
 }
 
-# fibonacci function using recursion
-fun fibonnaci(number) {
+expose fun fibonacci(number) {
     if number <= 0 {
         return 0
     }
@@ -19,4 +16,10 @@ fun fibonnaci(number) {
     }
 
     return fibonnaci(number - 1) + fibonnaci(number - 2)
+}
+
+expose def array = 200
+
+expose fun sample() {
+    return array + 89
 }

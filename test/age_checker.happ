@@ -1,7 +1,5 @@
-def anonymous = fun (name) {
-    return 2 + name
-}
+import "factorial" as sample
 
-print((fun (){
-    return 8 + 2
-})() + anonymous(8))
+print(
+    sample.sample()
+)

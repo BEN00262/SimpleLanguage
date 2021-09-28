@@ -18,11 +18,16 @@ const (
 	ARRAY
 	EXTERNALFUNC // called to the external runtime
 	EXTVALUE
+	IMPORTED_MODULE // has its own symbols table that is copied around
 )
 
+// add a type whether its exposed or not
+// we load into a new scope --> "VALUE" IsExported Boolean Value
 type SymbolTableValue struct {
-	Type  SymbolTableValueType
-	Value interface{}
+	Type             SymbolTableValueType
+	IsExported       bool
+	Value            interface{}
+	ReferenceToScope *symTable.ContextValue // this will not be used always --> used esp in modules and stuff
 }
 
 // create a runtime (used for other things, like creating standalone binaries :))
@@ -35,6 +40,7 @@ type SymbolTableValue struct {
 type Evaluator struct {
 	program      *ProgramNode
 	symbolsTable *symTable.SymbolsTable
+	IsExported   bool // used to show the current assignment is exported
 }
 
 func initEvaluator(program *ProgramNode) *Evaluator {
@@ -294,6 +300,16 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 			return ArrayNode{
 				Elements: _array_elements_,
 			}, ExceptionNode{Type: NO_EXCEPTION}
+		}
+	case ExportVisibilityNode:
+		{
+			eval.IsExported = true
+			defer (func(eval *Evaluator) {
+				eval.IsExported = false
+			})(eval)
+
+			_, _exception := eval.walkTree(_node.Exported)
+			return nil, _exception
 		}
 	case IFNode:
 		{
@@ -645,8 +661,9 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 	case FunctionDecl:
 		{
 			eval.symbolsTable.PushToContext(_node.Name, SymbolTableValue{
-				Type:  FUNCTION,
-				Value: _node,
+				Type:       FUNCTION,
+				IsExported: eval.IsExported,
+				Value:      _node,
 			})
 		}
 	case AnonymousFunction:
@@ -666,16 +683,15 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 				name.juma(7,8) --> inject the context here and start using them
 			*/
 
-			function, err := eval.symbolsTable.GetFromContext(_node.Name)
+			// function, err := eval.symbolsTable.GetFromContext(_node.Name)
 
-			if err != nil {
-				return nil, ExceptionNode{
-					Type:    NAME_EXCEPTION,
-					Message: fmt.Sprintf("'%s' does not exist", _node.Name),
-				}
+			function, _exception := eval.walkTree(_node.Name)
+
+			if _exception.Type != NO_EXCEPTION {
+				return nil, _exception
 			}
 
-			_function := (*function).(SymbolTableValue)
+			_function := (function).(SymbolTableValue)
 
 			if _function.Type != FUNCTION && _function.Type != EXTERNALFUNC {
 				return nil, ExceptionNode{
@@ -713,16 +729,15 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 
 					// get the type of the _val
 					switch _val_ := _val.(type) {
-					case ReturnNode:
+					case SymbolTableValue:
 						{
-							// we break out of the function execution with the given thing
-							// print this value
-							// fmt.Println(_val)
-							return _val_.Expression, ExceptionNode{Type: NO_EXCEPTION}
+							_args = append(_args, &_val_.Value)
+						}
+					default:
+						{
+							_args = append(_args, &_val)
 						}
 					}
-
-					_args = append(_args, &_val)
 				}
 
 				return _function_decl_.Function(_args...)
@@ -732,6 +747,15 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 			var exception ExceptionNode
 
 			// we are pushing the scopes here
+			// push a normal scope --> otherwise we should kind of get a refernce to the main scope
+			// i think of the function
+
+			// before we jump into this context please place the other context
+			if _function.ReferenceToScope != nil {
+				eval.symbolsTable.CopyContextToTop(*_function.ReferenceToScope)
+				defer eval.symbolsTable.PopContext()
+			}
+
 			eval.symbolsTable.PushContext()
 			defer eval.symbolsTable.PopContext()
 
@@ -758,11 +782,13 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 
 						valueType := VALUE
 
-						switch res.(type) {
+						switch _ret_ := res.(type) {
 						case AnonymousFunction:
 							valueType = FUNCTION
 						case ArrayNode:
 							valueType = ARRAY
+						case SymbolTableValue:
+							res = _ret_.Value
 						}
 
 						// we push to the context here --> ideally we should have a way to
@@ -841,6 +867,63 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 		{
 			return _node, ExceptionNode{Type: NO_EXCEPTION}
 		}
+	case ObjectAccessor:
+		{
+			// walk the tree
+			// parent and the children
+			// first get the parent context check its type
+
+			_parent_, _error_ := eval.symbolsTable.GetFromContext(_node.Parent)
+
+			if _error_ != nil {
+				return nil, ExceptionNode{Type: NAME_EXCEPTION, Message: _error_.Error()}
+			}
+
+			if _node.Child == "" {
+				// we dont have a kid here
+				// just return whatever we had
+				return (*_parent_).(SymbolTableValue), ExceptionNode{Type: NO_EXCEPTION}
+			}
+
+			// we have the parent --> check for now if its a module
+			if _parent_converted_, ok := (*_parent_).(SymbolTableValue); ok {
+				// we have the parent check the type
+				if _parent_converted_.Type != IMPORTED_MODULE {
+					return nil, ExceptionNode{
+						Type:    INVALID_OPERATION_EXCEPTION,
+						Message: "We only support accessing for module imports only as of now",
+					}
+				}
+
+				// we have the converted type
+				// get the child
+				if _import_, ok := _parent_converted_.Value.(ImportModule); ok {
+					// return the value found in this context
+					// after finishing just dump the current state --> find a much better way
+					eval.symbolsTable.CopyContextToTop(_import_.context)
+					defer eval.symbolsTable.PopContext()
+					// get the child value
+					_child_, err := eval.symbolsTable.GetFromContext(_node.Child)
+
+					if err != nil {
+						return nil, ExceptionNode{Type: NAME_EXCEPTION, Message: _error_.Error()}
+					}
+
+					// the *_child is an actual symbols table value
+					_child := (*_child_).(SymbolTableValue)
+
+					if !_child.IsExported {
+						return nil, ExceptionNode{
+							Type:    ACCESS_VIOLATION_EXCEPTION,
+							Message: "Access violation",
+						}
+					}
+
+					_child.ReferenceToScope = &_import_.context
+					return _child, ExceptionNode{Type: NO_EXCEPTION}
+				}
+			}
+		}
 	case CommentNode:
 		{
 			// we dont return a comment node for now just assume it
@@ -858,18 +941,17 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 			// we should also check the type of the stuff
 
 			if _index_, ok := _index_of_element_.(NumberNode); ok {
-				_array_, err := eval.symbolsTable.GetFromContext(_node.Array)
+				// an array is an accessor thing
+				// _node.Array --> we need a way to get the value back
+				// _array_, err := eval.symbolsTable.GetFromContext(_node.Array)
 
-				if err != nil {
-					return nil, ExceptionNode{
-						Type:    NAME_EXCEPTION,
-						Message: fmt.Sprintf("'%s' does not exist", _node.Array),
-					}
+				_array_, _exception := eval.walkTree(_node.Array)
+
+				if _exception.Type != NO_EXCEPTION {
+					return nil, _exception
 				}
 
-				_array_symbols_table_ := (*_array_).(SymbolTableValue)
-
-				if _implemented, ok := _array_symbols_table_.Value.(Getter); ok {
+				if _implemented, ok := _array_.(Getter); ok {
 
 					switch _node.Type {
 					case NORMAL:
@@ -929,9 +1011,11 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 			switch _node.Type {
 			case ASSIGNMENT, CONST_ASSIGNMENT:
 				{
+					// we push it here
 					eval.symbolsTable.PushToContext(_node.Lvalue, SymbolTableValue{
-						Type:  _type,
-						Value: _value,
+						Type:       _type,
+						IsExported: eval.IsExported,
+						Value:      _value,
 					})
 				}
 			case REASSIGNMENT:
@@ -948,7 +1032,8 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 	case Import:
 		{
 			// we need to pass back the exception
-			return nil, eval.loadModule(_node.FileName)
+			// we create something else our own stuff
+			return nil, eval.loadModule(_node)
 		}
 	case ConditionNode:
 		{
@@ -1033,6 +1118,7 @@ func (eval *Evaluator) Evaluate() interface{} {
 	var exception ExceptionNode
 
 	eval.symbolsTable.PushContext()
+	defer eval.symbolsTable.PopContext()
 
 	for _, node := range eval.program.Nodes {
 		ret, exception = eval.walkTree(node)
@@ -1046,6 +1132,5 @@ func (eval *Evaluator) Evaluate() interface{} {
 		}
 	}
 
-	eval.symbolsTable.PopContext()
 	return ret
 }

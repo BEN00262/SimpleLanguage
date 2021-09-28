@@ -224,65 +224,7 @@ func (parser *Parser) _parseFactor() interface{} {
 		}
 
 	} else if _currentToken.Type == VARIABLE {
-		if IsTypeAndValue(parser.peekAhead(), HALF_CIRCLE_BRACKET, "(") {
-			parser.eatToken()
-			parser.eatToken() // the first (
-
-			_array_of_args := parser._parseFunctionArgs()
-
-			parser.IsExpectedEatElsePanic(
-				parser.CurrentToken(),
-				HALF_CIRCLE_BRACKET, ")",
-				"Expected a ')'",
-			)
-
-			return FunctionCall{
-				Name:     _currentToken.Value.(string),
-				ArgCount: len(_array_of_args),
-				Args:     _array_of_args,
-			}
-
-		} else if IsTypeAndValue(parser.peekAhead(), SQUARE_BRACKET, "[") {
-			// also check if the next token is a square bracket if so this is an array access thing
-			parser.eatToken()
-			parser.eatToken()
-
-			// parse the expression here
-			_accessor_type_ := NORMAL
-			var _end_index_expression_ interface{}
-			_array_index_expression_ := parser._parseExpression()
-
-			// check if the current token is a :
-
-			// if so eat it and do shit
-			if IsTypeAndValue(parser.CurrentToken(), COLON, ":") {
-				parser.eatToken()
-
-				// we should check for errors later
-
-				_end_index_expression_ = parser._parseExpression()
-				_accessor_type_ = RANGE
-			}
-
-			parser.IsExpectedEatElsePanic(
-				parser.CurrentToken(),
-				SQUARE_BRACKET, "]",
-				"Expected a closing ']'",
-			)
-
-			return ArrayAccessorNode{
-				Array:    _currentToken.Value.(string),
-				Index:    _array_index_expression_,
-				Type:     _accessor_type_,
-				EndIndex: _end_index_expression_,
-			}
-		}
-
-		parser.eatToken()
-
-		return VariableNode{
-			Value: _currentToken.Value.(string),
-		}
+		return parser.parseVariableExpression()
 	}
 
 	return nil
@@ -453,6 +395,27 @@ func (parser *Parser) _parse(token Token) interface{} {
 						Expression: _expression,
 					}
 				}
+			case EXPOSE:
+				{
+					parser.eatToken()
+
+					// the node returned should be of type Assignment(not a reassignment) FunctionDecl
+					_toBeExported := parser._parse(parser.CurrentToken())
+
+					if _isExportable, ok := _toBeExported.(IExportables); ok {
+						if !_isExportable.IsExported() {
+							goto failedToExport
+						}
+
+						// create a an expose node
+						return ExportVisibilityNode{
+							Exported: _toBeExported,
+						}
+					}
+
+				failedToExport:
+					panic("Can't place an expose statement before that")
+				}
 			case DEF, CONST:
 				{
 					_currentTokenType := parser.CurrentToken().Value
@@ -489,12 +452,32 @@ func (parser *Parser) _parse(token Token) interface{} {
 				}
 			case IMPORT:
 				{
-					parser.eatToken()
+					parser.eatToken() // eat the import keyword
 					fileName := parser.CurrentToken()
-					parser.eatToken()
+					parser.eatToken() // eat the filename
+					var alias string
 
+					// we check if we have an alias thing if so get it and ensure its a * or a variable
+					if IsTypeAndValue(parser.CurrentToken(), KEYWORD, AS) {
+						// we then need to get the alias
+						parser.eatToken()
+
+						// check the alias value
+						_currentToken := parser.CurrentToken()
+
+						if _currentToken.Type == VARIABLE || (_currentToken.Type == OPERATOR && _currentToken.Value.(string) == "*") {
+							alias = _currentToken.Value.(string)
+							parser.eatToken()
+							goto end
+						}
+
+						panic("Expected a variable or * for an alias")
+					}
+
+				end:
 					return Import{
 						FileName: fileName.Value.(string),
+						Alias:    alias,
 					}
 				}
 			default:

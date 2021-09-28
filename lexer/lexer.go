@@ -166,6 +166,11 @@ func (lexer *Lexer) Lex() []Token {
 				Type:  OPERATOR,
 				Value: string(lexeme),
 			})
+		} else if lexeme == '.' {
+			tokens = append(tokens, Token{
+				Type:  DOT,
+				Value: ".",
+			})
 		} else if lexeme == ':' {
 			// return the lexeme
 			tokens = append(tokens, Token{
