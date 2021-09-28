@@ -16,7 +16,10 @@ func IsTypeAndValue(token Token, expectedType TokenType, value string) bool {
 func (parser *Parser) IsExpectedEatElsePanic(token Token, expectedType TokenType, value string, panicMessage string) {
 	if !IsTypeAndValue(token, expectedType, value) {
 		// what if we use chans and then if the error state changes to true just exit it
-		panic(panicMessage)
+
+		// we dont panic insted we show where the error is
+		parser.reportError(token, panicMessage)
+		// panic(panicMessage)
 	}
 	parser.eatToken() // advance the counter if true
 }
@@ -80,6 +83,7 @@ func (parser *Parser) ParseFunction() interface{} {
 	_current_token_ := parser.CurrentToken()
 
 	if IsTypeAndValue(_current_token_, HALF_CIRCLE_BRACKET, "(") {
+		// this is an anonymous function
 		_code, params, paramCount := parser.parseCommonFunctionCode()
 
 		return AnonymousFunction{

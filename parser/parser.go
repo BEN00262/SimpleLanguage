@@ -214,21 +214,35 @@ func (parser *Parser) _parseFactor() interface{} {
 			Value: _currentToken.Value.(string),
 		}
 	} else if _currentToken.Type == KEYWORD {
-		parser.eatToken()
 
 		if strings.Compare(_currentToken.Value.(string), TRUE) == 0 {
+			parser.eatToken()
 			return BoolNode{
 				Value: 1,
 			}
 		}
 
 		if strings.Compare(_currentToken.Value.(string), FALSE) == 0 {
+			parser.eatToken()
 			return BoolNode{
 				Value: 0,
 			}
 		}
 
+		// check if we get a fun keyword if so ensure that the next value is not a name and return
+		if _currentToken.Value.(string) == FUNC {
+			// peer ahead to see
+			// report the error well --> do it kesho
+			if !IsTypeAndValue(parser.peekAhead(), HALF_CIRCLE_BRACKET, "(") {
+				parser.reportError(parser.peekAhead(), "Function expression expects no name")
+			}
+
+			return parser.ParseFunction()
+
+		}
+
 		if _currentToken.Value == NIL {
+			parser.eatToken()
 			return NilNode{}
 		}
 

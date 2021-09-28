@@ -15,7 +15,9 @@ func (parser *Parser) _parseFunctionParams() (params []Param, paramCount int) {
 
 	for parser.CurrentPosition < parser.TokensLength && !IsTypeAndValue(_currentToken, HALF_CIRCLE_BRACKET, ")") {
 		if _currentToken.Type != VARIABLE {
-			panic("Weird error")
+			// panic("Weird error")
+
+			parser.reportError(_currentToken, "Invalid function params")
 		}
 
 		params = append(params, Param{
@@ -43,6 +45,8 @@ func (parser *Parser) _parseFunctionArgs() (_args []interface{}) {
 	for parser.CurrentPosition < parser.TokensLength && !IsTypeAndValue(_currentToken, HALF_CIRCLE_BRACKET, ")") {
 		_args = append(_args, parser._parseExpression())
 		_currentToken = parser.CurrentToken()
+
+		// fmt.Println(_args)
 
 		if _currentToken.Type == COMMA {
 			// eat the damn shit

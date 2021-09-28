@@ -176,7 +176,7 @@ var (
 						_type = "number"
 					case BoolNode:
 						_type = "boolean"
-					case FunctionDecl:
+					case FunctionDecl, AnonymousFunction:
 						_type = "function"
 					case ExceptionNode:
 						// we should have an exception type
