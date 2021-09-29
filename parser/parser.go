@@ -533,12 +533,14 @@ func (parser *Parser) _parse(token Token) interface{} {
 			// increment the fuck out of this
 			parser.eatToken()
 
+			// we should return nothing
 			return CommentNode{
 				comment: token.Value.(string),
 			}
 		}
 	default:
 		{
+			// we try to pass the expression
 			return parser._parseExpression()
 		}
 	}
