@@ -1,47 +1,6 @@
-def InvalidCallback = "InvalidCallback"
-def InvalidArgumentType = "InvalidArgumentType"
+def counter = 0
 
-fun takesACallback(age, callback) {
-    if age < 18 {
-        # a one for introspection ---> improve it though
-        if type(callback) != "function" {
-            raise Exception(InvalidCallback, "Expected a callback")
-        }
-
-        return callback(age)
-    }
-
-    return nil
+for (counter < 10) {
+    print("This should be cached {counter}")
+    counter = counter + 1
 }
-
-# we can catch exceptions
-fun demoExceptionHandling(throw) {
-    if type(throw) != "boolean" {
-        raise Exception(InvalidArgumentType, "throw should be a boolean")
-    }
-
-    try {
-         if throw {
-            print(takesACallback (12, 8))
-        }
-
-        # this is a correct execution
-
-        print(takesACallback (12, fun (age) {
-            print("we are in the callback")
-            return age
-        }))
-    } catch(error) {
-        if type(error) == InvalidCallback {
-            print("caught the error: {error[0]}")
-        } else {
-            raise error
-        }
-    }
-}
-
-# throw the exception
-demoExceptionHandling(true)
-
-# dont throw the exception
-demoExceptionHandling(false)

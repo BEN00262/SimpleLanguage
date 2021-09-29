@@ -355,6 +355,11 @@ type BoolNode struct {
 	Value int
 }
 
+// this has something to do with true of false
+func (boolNode *BoolNode) True() bool {
+	return boolNode.Value == 1
+}
+
 func (boolNode *BoolNode) IsEqualTo(value interface{}) BoolNode {
 	switch _lhs := value.(type) {
 	case BoolNode:

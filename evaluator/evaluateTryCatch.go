@@ -44,6 +44,7 @@ func (evaluator *Evaluator) evaluateTryCatchFinally(_tryCatchNode TryCatchNode) 
 	_exception := _exceptionThrown
 
 	// check if the exception is of INTERNAL_RETURN_EXCEPTION if so just return the results
+	// this is actually useless --> i think because we handle the exception there tops
 	if _exception.Type == INTERNAL_RETURN_EXCEPTION {
 		return _tryEvaluation, ExceptionNode{Type: NO_EXCEPTION}
 	}

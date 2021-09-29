@@ -15,7 +15,7 @@ func (parser *Parser) reportError(token Token, errorMessage ...string) {
 	green := color.FgGreen.Render
 
 	for _, message := range errorMessage {
-		color.BgYellow.Println(red(message))
+		fmt.Println(red(message))
 	}
 
 	// input[:index] + string(replacement) + input[index+1:]

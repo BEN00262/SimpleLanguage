@@ -23,7 +23,7 @@ func shouldContinue(text string) bool {
 }
 
 func printRepl() {
-	fmt.Print("go-repl> ")
+	fmt.Print("hpl> ")
 }
 
 func REPL() {

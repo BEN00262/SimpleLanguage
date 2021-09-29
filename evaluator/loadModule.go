@@ -28,6 +28,7 @@ type ImportModule struct {
 	context ContextValue
 }
 
+// how tf do we work with imports to the same file across board
 func (eval *Evaluator) loadModule(module Import) ExceptionNode {
 	// ensure the filename exists --> also check for errors in the lexer and the parser too
 	// have a * we dump to the global scope
@@ -47,14 +48,12 @@ func (eval *Evaluator) loadModule(module Import) ExceptionNode {
 		}
 	}
 
-	// find a way to pass the values along
 	// check if the module has a .happ extension if not add it
 	if filepath.Ext(module.FileName) != ".happ" {
 		if module.Alias == "" {
 			module.Alias = module.FileName
 		}
 
-		// append that
 		module.FileName += ".happ"
 	}
 
@@ -98,10 +97,22 @@ func (eval *Evaluator) loadModule(module Import) ExceptionNode {
 }
 
 func (eval *Evaluator) _eval(codeString string) (result interface{}, exception ExceptionNode) {
-	lexer := InitLexer(codeString)
-	parser := InitParser(lexer.Lex(), lexer.SplitCode)
+	var lexer *Lexer
+	var program *ProgramNode
 
-	for _, node := range parser.Parse().Nodes {
+	if eval.evalCache.IsFresh(codeString) {
+		lexer = eval.evalCache.Lexed
+		program = eval.evalCache.Program
+	} else {
+		lexer = InitLexer(codeString)
+		program = InitParser(lexer.Lex(), lexer.SplitCode).Parse()
+
+		go (func() {
+			eval.evalCache.UpdateCache(codeString, lexer, program)
+		})()
+	}
+
+	for _, node := range program.Nodes {
 
 		switch node.(type) {
 		case ExpressionNode:

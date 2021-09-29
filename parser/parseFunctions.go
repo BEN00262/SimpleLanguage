@@ -93,8 +93,17 @@ func (parser *Parser) ParseFunction() interface{} {
 		}
 	}
 
-	_name := _current_token_.Value.(string) // function name
-	parser.eatToken()                       // proceed to the (
+	// report this error
+	_name, ok := _current_token_.Value.(string) // function name
+
+	if !ok {
+		parser.reportError(
+			_current_token_,
+			"Expected a function name",
+		)
+	}
+
+	parser.eatToken() // proceed to the (
 
 	_code, params, paramCount := parser.parseCommonFunctionCode()
 

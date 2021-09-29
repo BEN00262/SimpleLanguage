@@ -26,5 +26,5 @@ func Interpreter(codeString string) interface{} {
 	evaluator.InitGlobalScope()
 	LoadGlobalsToContext(evaluator)
 
-	return evaluator.Evaluate()
+	return evaluator.Evaluate(true)
 }
