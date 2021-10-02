@@ -1,0 +1,28 @@
+# another solution
+
+fun marksPurchase(prices_array, max_budget) {
+    def prices_array_length = len(prices_array)
+    def possible_purchases = []
+
+    for(def i = 0; i < prices_array_length;i + 1) {
+        def holder_array = [prices_array[i]]
+        def current_total = 0
+
+        for(def j = 0; j < prices_array_length; j + 1) {
+            if i != j {
+                print("{current_total}   {(current_total <= max_budget)}")
+                if current_total <= max_budget {
+                    holder_array = push(holder_array, prices_array[j])
+                    current_total = current_total + prices_array[i] + prices_array[j]
+                }
+            }
+        }
+
+        print("Done with the first iteration {current_total}")
+        possible_purchases = push(possible_purchases, [holder_array, current_total])
+    }
+
+    return possible_purchases
+}
+
+print(marksPurchase([1,2,3,4], 7))

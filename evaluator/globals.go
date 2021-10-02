@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 
 	. "github.com/BEN00262/simpleLang/exceptions"
 	. "github.com/BEN00262/simpleLang/parser"
@@ -24,39 +23,6 @@ func visit(files *[]interface{}) filepath.WalkFunc {
 
 		return nil
 	}
-}
-
-func _print(value interface{}) string {
-	switch _value := value.(type) {
-	case StringNode:
-		{
-			return fmt.Sprintf("%s", _value.Value)
-		}
-	case NumberNode:
-		{
-			// find the string stuff and then use it
-			return fmt.Sprintf("%v", _value.Value.Text(10))
-		}
-	case BoolNode:
-		{
-			if _value.Value == 1 {
-				return fmt.Sprint("True")
-			} else {
-				return fmt.Sprint("False")
-			}
-		}
-	case ArrayNode:
-		{
-			var _arguments_ []string
-
-			for _, _element := range _value.Elements {
-				_arguments_ = append(_arguments_, _print(_element))
-			}
-
-			return "[ " + strings.Join(_arguments_, ",") + " ]"
-		}
-	}
-	return ""
 }
 
 // work arrays into the system and also dictionaries
@@ -173,7 +139,13 @@ var (
 					case StringNode:
 						_type = "string"
 					case NumberNode:
-						_type = "number"
+						{
+							if _val.Type == INTEGER {
+								_type = "integer"
+							} else {
+								_type = "float"
+							}
+						}
 					case BoolNode:
 						_type = "boolean"
 					case FunctionDecl, AnonymousFunction:
@@ -227,7 +199,7 @@ var (
 					// how the tf are we going to do this
 
 					for _, _value_ := range values {
-						fmt.Printf("%s", _print(*_value_))
+						fmt.Printf("%s", Print(*_value_))
 					}
 
 					fmt.Println()

@@ -55,6 +55,19 @@ type ExpressionNode struct {
 	Expression interface{}
 }
 
+type LogicalComparisonType int
+
+const (
+	AND_COMPARATOR LogicalComparisonType = iota + 1
+	OR_COMPARATOR
+)
+
+type LogicalComparison struct {
+	Type LogicalComparisonType
+	Rhs  interface{} // Expression
+	Lhs  interface{} // Expression
+}
+
 /*
 	type Getter interface {
 		Get(index int64) interface{}
@@ -171,9 +184,12 @@ func (array ArrayNode) Length() NumberNode {
 }
 
 // this works for getting at a given index
-func (array ArrayNode) Get(index int) interface{} {
-	if (len(array.Elements) == 0) || (index > len(array.Elements)-1 || index < 0) {
-		return NilNode{}
+func (array ArrayNode) Get(index int64) interface{} {
+	if (len(array.Elements) == 0) || (index > int64(len(array.Elements)-1) || index < 0) {
+		return ExceptionNode{
+			Type:    INVALID_INDEX_EXCEPTION,
+			Message: "Invalid index access",
+		}
 	}
 
 	return array.Elements[index]
@@ -187,7 +203,10 @@ func (array ArrayNode) Range(start int64, end int64) interface{} {
 
 	// check for the constraints
 	if start < 0 || _startCmp == 1 || end < 0 || _endCmp == 1 {
-		return NilNode{}
+		return ExceptionNode{
+			Type:    INVALID_INDEX_EXCEPTION,
+			Message: "Invalid range access limits; Ensure the limits are within the array",
+		}
 	}
 
 	return ArrayNode{
@@ -204,7 +223,7 @@ func (array *ArrayNode) Push(value interface{}) {
 
 // poping a value return it
 func (array *ArrayNode) Pop() interface{} {
-	_last_item_ := array.Get(len(array.Elements) - 1)
+	_last_item_ := array.Get(int64(len(array.Elements) - 1))
 	array.Elements = array.Elements[:len(array.Elements)-1]
 	return _last_item_
 }
@@ -283,12 +302,13 @@ type ForNode struct {
 	Initialization interface{}
 	Condition      interface{}
 	Increment      interface{}
-	ForBody        []interface{}
+	ForBody        BlockNode
 }
 
+// we have a block node hapa buana
 type IFNode struct {
 	Condition interface{}
-	ThenBody  []interface{}
+	ThenBody  BlockNode
 	ElseBody  []interface{}
 }
 
@@ -454,8 +474,18 @@ type ArthOp interface {
 // this implements the Equals interface
 // this should not be an int ( use float64 laters )
 // this should be a big integer thing
+// we should place also a float value hapa
+type NumberType int
+
+const (
+	INTEGER = iota + 1
+	FLOAT
+)
+
 type NumberNode struct {
-	Value big.Int
+	Type   NumberType
+	Value  big.Int
+	FValue big.Float
 }
 
 // implementing arithmetic operations
@@ -464,17 +494,79 @@ func (number *NumberNode) Add(right interface{}) interface{} {
 	switch _right := right.(type) {
 	case NumberNode:
 		{
-			number_copy := new(big.Int).Set(&number.Value)
-			// just add the numbers
-			return NumberNode{
-				Value: *number_copy.Add(number_copy, &_right.Value),
+			switch number.Type {
+			case FLOAT:
+				{
+					switch _right.Type {
+					case FLOAT:
+						{
+							left_float_number_copy := new(big.Float).Set(&number.FValue)
+							right_float_number_copy := new(big.Float).Set(&_right.FValue)
+
+							return NumberNode{
+								Type: FLOAT,
+								FValue: *left_float_number_copy.Add(
+									left_float_number_copy,
+									right_float_number_copy,
+								),
+							}
+						}
+					case INTEGER:
+						{
+
+							left_float_number_copy := new(big.Float).Set(&number.FValue)
+							right_float_number_copy := new(big.Float).SetInt(&_right.Value)
+
+							return NumberNode{
+								Type: FLOAT,
+								FValue: *left_float_number_copy.Add(
+									left_float_number_copy,
+									right_float_number_copy,
+								),
+							}
+
+						}
+					}
+				}
+			case INTEGER:
+				{
+					switch _right.Type {
+					case FLOAT:
+						{
+							left_float_number_copy := new(big.Float).SetInt(&number.Value)
+							right_float_number_copy := new(big.Float).Set(&_right.FValue)
+
+							// left_float_number_copy.
+
+							return NumberNode{
+								Type: FLOAT,
+								FValue: *left_float_number_copy.Add(
+									left_float_number_copy,
+									right_float_number_copy,
+								),
+							}
+						}
+					case INTEGER:
+						{
+							left_float_number_copy := new(big.Int).Set(&number.Value)
+							right_float_number_copy := new(big.Int).Set(&_right.Value)
+
+							return NumberNode{
+								Type: INTEGER,
+								Value: *left_float_number_copy.Add(
+									left_float_number_copy,
+									right_float_number_copy,
+								),
+							}
+						}
+					}
+				}
 			}
 		}
 	case StringNode:
 		{
-			// we convert the number to a string then add them together
 			return StringNode{
-				Value: fmt.Sprintf("%d %s", number.Value, _right.Value),
+				Value: fmt.Sprintf("%s%s", Print(number), _right.Value),
 			}
 		}
 	}
@@ -492,10 +584,71 @@ func (number *NumberNode) Sub(right interface{}) interface{} {
 	switch _right := right.(type) {
 	case NumberNode:
 		{
-			number_copy := new(big.Int).Set(&number.Value)
-			// just add the numbers
-			return NumberNode{
-				Value: *number_copy.Sub(number_copy, &_right.Value),
+			switch number.Type {
+			case FLOAT:
+				{
+					switch _right.Type {
+					case FLOAT:
+						{
+							left_float_number_copy := new(big.Float).Set(&number.FValue)
+							right_float_number_copy := new(big.Float).Set(&_right.FValue)
+
+							return NumberNode{
+								Type: FLOAT,
+								FValue: *left_float_number_copy.Sub(
+									left_float_number_copy,
+									right_float_number_copy,
+								),
+							}
+						}
+					case INTEGER:
+						{
+
+							left_float_number_copy := new(big.Float).Set(&number.FValue)
+							right_float_number_copy := new(big.Float).SetInt(&_right.Value)
+
+							return NumberNode{
+								Type: FLOAT,
+								FValue: *left_float_number_copy.Sub(
+									left_float_number_copy,
+									right_float_number_copy,
+								),
+							}
+
+						}
+					}
+				}
+			case INTEGER:
+				{
+					switch _right.Type {
+					case FLOAT:
+						{
+							left_float_number_copy := new(big.Float).SetInt(&number.Value)
+							right_float_number_copy := new(big.Float).Set(&_right.FValue)
+
+							return NumberNode{
+								Type: FLOAT,
+								FValue: *left_float_number_copy.Sub(
+									left_float_number_copy,
+									right_float_number_copy,
+								),
+							}
+						}
+					case INTEGER:
+						{
+							left_float_number_copy := new(big.Int).Set(&number.Value)
+							right_float_number_copy := new(big.Int).Set(&_right.Value)
+
+							return NumberNode{
+								Type: INTEGER,
+								Value: *left_float_number_copy.Sub(
+									left_float_number_copy,
+									right_float_number_copy,
+								),
+							}
+						}
+					}
+				}
 			}
 		}
 	}
@@ -513,25 +666,49 @@ func (number *NumberNode) Mod(right interface{}) interface{} {
 	switch _right := right.(type) {
 	case NumberNode:
 		{
-			if _right.Value.Cmp(big.NewInt(0)) == 0 {
-				// DIVISION_BY_ZERO_EXCEPTION
-				return ExceptionNode{
-					Type:    DIVISION_BY_ZERO_EXCEPTION,
-					Message: "Division or Modulo by zero error",
+			switch number.Type {
+			case FLOAT:
+				{
+					switch _right.Type {
+					case FLOAT, INTEGER:
+						goto error_exit
+					}
 				}
-			}
+			case INTEGER:
+				{
+					switch _right.Type {
+					case FLOAT:
+						{
+							goto error_exit
+						}
+					case INTEGER:
+						{
+							left_float_number_copy := new(big.Int).Set(&number.Value)
+							right_float_number_copy := new(big.Int).Set(&_right.Value)
 
-			// create a copy and do the operation on it
-			number_copy := new(big.Int).Set(&number.Value)
+							if right_float_number_copy.Cmp(big.NewInt(0)) == 0 {
+								return ExceptionNode{
+									Type:    DIVISION_BY_ZERO_EXCEPTION,
+									Message: "Division or Modulo by zero error",
+								}
+							}
 
-			// just add the numbers
-			return NumberNode{
-				Value: *number_copy.Mod(number_copy, &_right.Value),
+							return NumberNode{
+								Type: INTEGER,
+								Value: *left_float_number_copy.Mod(
+									left_float_number_copy,
+									right_float_number_copy,
+								),
+							}
+						}
+					}
+				}
 			}
 		}
 	}
 
 	// we should return an error code here
+error_exit:
 	return ExceptionNode{
 		Type:    INVALID_OPERATION_EXCEPTION,
 		Message: "Unsupported operation on type 'number'",
@@ -544,25 +721,51 @@ func (number *NumberNode) Div(right interface{}) interface{} {
 	switch _right := right.(type) {
 	case NumberNode:
 		{
-			// if the _right value is zero throw a divide by zero exception
-			if _right.Value.Cmp(big.NewInt(0)) == 0 {
-				// DIVISION_BY_ZERO_EXCEPTION
-				return ExceptionNode{
-					Type:    DIVISION_BY_ZERO_EXCEPTION,
-					Message: "Division or Modulo by zero error",
+			switch number.Type {
+			case FLOAT:
+				{
+					switch _right.Type {
+					case FLOAT, INTEGER:
+						{
+							goto error_exit
+						}
+					}
 				}
-			}
+			case INTEGER:
+				{
+					switch _right.Type {
+					case FLOAT:
+						{
+							goto error_exit
+						}
+					case INTEGER:
+						{
+							left_float_number_copy := new(big.Int).Set(&number.Value)
+							right_float_number_copy := new(big.Int).Set(&_right.Value)
 
-			number_copy := new(big.Int).Set(&number.Value)
+							if right_float_number_copy.Cmp(big.NewInt(0)) == 0 {
+								return ExceptionNode{
+									Type:    DIVISION_BY_ZERO_EXCEPTION,
+									Message: "Division or Modulo by zero error",
+								}
+							}
 
-			// just add the numbers
-			return NumberNode{
-				Value: *number_copy.Div(number_copy, &_right.Value),
+							return NumberNode{
+								Type: INTEGER,
+								Value: *left_float_number_copy.Div(
+									left_float_number_copy,
+									right_float_number_copy,
+								),
+							}
+						}
+					}
+				}
 			}
 		}
 	}
 
 	// we should return an error code here
+error_exit:
 	return ExceptionNode{
 		Type:    INVALID_OPERATION_EXCEPTION,
 		Message: "Unsupported operation on type 'number'",
@@ -571,14 +774,74 @@ func (number *NumberNode) Div(right interface{}) interface{} {
 
 // implementing arithmetic operations
 func (number *NumberNode) Mul(right interface{}) interface{} {
-	// work with interfaces
 	switch _right := right.(type) {
 	case NumberNode:
 		{
-			number_copy := new(big.Int).Set(&number.Value)
-			// just add the numbers
-			return NumberNode{
-				Value: *number_copy.Mul(number_copy, &_right.Value),
+			switch number.Type {
+			case FLOAT:
+				{
+					switch _right.Type {
+					case FLOAT:
+						{
+							left_float_number_copy := new(big.Float).Set(&number.FValue)
+							right_float_number_copy := new(big.Float).Set(&_right.FValue)
+
+							return NumberNode{
+								Type: FLOAT,
+								FValue: *left_float_number_copy.Mul(
+									left_float_number_copy,
+									right_float_number_copy,
+								),
+							}
+						}
+					case INTEGER:
+						{
+
+							left_float_number_copy := new(big.Float).Set(&number.FValue)
+							right_float_number_copy := new(big.Float).SetInt(&_right.Value)
+
+							return NumberNode{
+								Type: FLOAT,
+								FValue: *left_float_number_copy.Mul(
+									left_float_number_copy,
+									right_float_number_copy,
+								),
+							}
+
+						}
+					}
+				}
+			case INTEGER:
+				{
+					switch _right.Type {
+					case FLOAT:
+						{
+							left_float_number_copy := new(big.Float).SetInt(&number.Value)
+							right_float_number_copy := new(big.Float).Set(&_right.FValue)
+
+							return NumberNode{
+								Type: FLOAT,
+								FValue: *left_float_number_copy.Mul(
+									left_float_number_copy,
+									right_float_number_copy,
+								),
+							}
+						}
+					case INTEGER:
+						{
+							left_float_number_copy := new(big.Int).Set(&number.Value)
+							right_float_number_copy := new(big.Int).Set(&_right.Value)
+
+							return NumberNode{
+								Type: INTEGER,
+								Value: *left_float_number_copy.Mul(
+									left_float_number_copy,
+									right_float_number_copy,
+								),
+							}
+						}
+					}
+				}
 			}
 		}
 	}
@@ -591,13 +854,66 @@ func (number *NumberNode) Mul(right interface{}) interface{} {
 }
 
 // comperison interface implementation
-func (numberNode *NumberNode) IsEqualTo(value interface{}) BoolNode {
-	switch _rvalue := value.(type) {
+func (number *NumberNode) IsEqualTo(value interface{}) BoolNode {
+	switch _right := value.(type) {
 	case NumberNode:
 		{
-			if numberNode.Value.Cmp(&_rvalue.Value) == 0 {
-				return BoolNode{
-					Value: 1,
+			switch number.Type {
+			case FLOAT:
+				{
+					switch _right.Type {
+					case FLOAT:
+						{
+							left_float_number_copy := new(big.Float).Set(&number.FValue)
+							right_float_number_copy := new(big.Float).Set(&_right.FValue)
+
+							if left_float_number_copy.Cmp(right_float_number_copy) == 0 {
+								return BoolNode{
+									Value: 1,
+								}
+							}
+						}
+					case INTEGER:
+						{
+
+							left_float_number_copy := new(big.Float).Set(&number.FValue)
+							right_float_number_copy := new(big.Float).SetInt(&_right.Value)
+
+							if left_float_number_copy.Cmp(right_float_number_copy) == 0 {
+								return BoolNode{
+									Value: 1,
+								}
+							}
+
+						}
+					}
+				}
+			case INTEGER:
+				{
+					switch _right.Type {
+					case FLOAT:
+						{
+							left_float_number_copy := new(big.Float).SetInt(&number.Value)
+							right_float_number_copy := new(big.Float).Set(&_right.FValue)
+
+							if left_float_number_copy.Cmp(right_float_number_copy) == 0 {
+								return BoolNode{
+									Value: 1,
+								}
+							}
+						}
+					case INTEGER:
+						{
+							left_float_number_copy := new(big.Int).Set(&number.Value)
+							right_float_number_copy := new(big.Int).Set(&_right.Value)
+
+							if left_float_number_copy.Cmp(right_float_number_copy) == 0 {
+								return BoolNode{
+									Value: 1,
+								}
+							}
+						}
+					}
 				}
 			}
 		}
@@ -608,13 +924,66 @@ func (numberNode *NumberNode) IsEqualTo(value interface{}) BoolNode {
 	}
 }
 
-func (numberNode *NumberNode) IsGreaterThan(value interface{}) BoolNode {
-	switch _rvalue := value.(type) {
+func (number *NumberNode) IsGreaterThan(value interface{}) BoolNode {
+	switch _right := value.(type) {
 	case NumberNode:
 		{
-			if numberNode.Value.Cmp(&_rvalue.Value) == 1 {
-				return BoolNode{
-					Value: 1,
+			switch number.Type {
+			case FLOAT:
+				{
+					switch _right.Type {
+					case FLOAT:
+						{
+							left_float_number_copy := new(big.Float).Set(&number.FValue)
+							right_float_number_copy := new(big.Float).Set(&_right.FValue)
+
+							if left_float_number_copy.Cmp(right_float_number_copy) == 1 {
+								return BoolNode{
+									Value: 1,
+								}
+							}
+						}
+					case INTEGER:
+						{
+
+							left_float_number_copy := new(big.Float).Set(&number.FValue)
+							right_float_number_copy := new(big.Float).SetInt(&_right.Value)
+
+							if left_float_number_copy.Cmp(right_float_number_copy) == 1 {
+								return BoolNode{
+									Value: 1,
+								}
+							}
+
+						}
+					}
+				}
+			case INTEGER:
+				{
+					switch _right.Type {
+					case FLOAT:
+						{
+							left_float_number_copy := new(big.Float).SetInt(&number.Value)
+							right_float_number_copy := new(big.Float).Set(&_right.FValue)
+
+							if left_float_number_copy.Cmp(right_float_number_copy) == 1 {
+								return BoolNode{
+									Value: 1,
+								}
+							}
+						}
+					case INTEGER:
+						{
+							left_float_number_copy := new(big.Int).Set(&number.Value)
+							right_float_number_copy := new(big.Int).Set(&_right.Value)
+
+							if left_float_number_copy.Cmp(right_float_number_copy) == 1 {
+								return BoolNode{
+									Value: 1,
+								}
+							}
+						}
+					}
 				}
 			}
 		}
@@ -626,14 +995,70 @@ func (numberNode *NumberNode) IsGreaterThan(value interface{}) BoolNode {
 }
 
 // IsGreaterThanOrEqualsTo
-func (numberNode *NumberNode) IsGreaterThanOrEqualsTo(value interface{}) BoolNode {
-	switch _rvalue := value.(type) {
+func (number *NumberNode) IsGreaterThanOrEqualsTo(value interface{}) BoolNode {
+	switch _right := value.(type) {
 	case NumberNode:
 		{
-			_comp := numberNode.Value.Cmp(&_rvalue.Value)
-			if _comp == 1 || _comp == 0 {
-				return BoolNode{
-					Value: 1,
+			switch number.Type {
+			case FLOAT:
+				{
+					switch _right.Type {
+					case FLOAT:
+						{
+							left_float_number_copy := new(big.Float).Set(&number.FValue)
+							right_float_number_copy := new(big.Float).Set(&_right.FValue)
+
+							_comp := left_float_number_copy.Cmp(right_float_number_copy)
+							if _comp == 1 || _comp == 0 {
+								return BoolNode{
+									Value: 1,
+								}
+							}
+						}
+					case INTEGER:
+						{
+
+							left_float_number_copy := new(big.Float).Set(&number.FValue)
+							right_float_number_copy := new(big.Float).SetInt(&_right.Value)
+
+							_comp := left_float_number_copy.Cmp(right_float_number_copy)
+							if _comp == 1 || _comp == 0 {
+								return BoolNode{
+									Value: 1,
+								}
+							}
+
+						}
+					}
+				}
+			case INTEGER:
+				{
+					switch _right.Type {
+					case FLOAT:
+						{
+							left_float_number_copy := new(big.Float).SetInt(&number.Value)
+							right_float_number_copy := new(big.Float).Set(&_right.FValue)
+
+							_comp := left_float_number_copy.Cmp(right_float_number_copy)
+							if _comp == 1 || _comp == 0 {
+								return BoolNode{
+									Value: 1,
+								}
+							}
+						}
+					case INTEGER:
+						{
+							left_float_number_copy := new(big.Int).Set(&number.Value)
+							right_float_number_copy := new(big.Int).Set(&_right.Value)
+
+							_comp := left_float_number_copy.Cmp(right_float_number_copy)
+							if _comp == 1 || _comp == 0 {
+								return BoolNode{
+									Value: 1,
+								}
+							}
+						}
+					}
 				}
 			}
 		}
@@ -644,15 +1069,69 @@ func (numberNode *NumberNode) IsGreaterThanOrEqualsTo(value interface{}) BoolNod
 	}
 }
 
-func (numberNode *NumberNode) IsLessThan(value interface{}) BoolNode {
-	switch _rvalue := value.(type) {
+func (number *NumberNode) IsLessThan(value interface{}) BoolNode {
+	switch _right := value.(type) {
 	case NumberNode:
 		{
-			if numberNode.Value.Cmp(&_rvalue.Value) == -1 {
-				return BoolNode{
-					Value: 1,
+			switch number.Type {
+			case FLOAT:
+				{
+					switch _right.Type {
+					case FLOAT:
+						{
+							left_float_number_copy := new(big.Float).Set(&number.FValue)
+							right_float_number_copy := new(big.Float).Set(&_right.FValue)
+
+							if left_float_number_copy.Cmp(right_float_number_copy) == -1 {
+								return BoolNode{
+									Value: 1,
+								}
+							}
+						}
+					case INTEGER:
+						{
+
+							left_float_number_copy := new(big.Float).Set(&number.FValue)
+							right_float_number_copy := new(big.Float).SetInt(&_right.Value)
+
+							if left_float_number_copy.Cmp(right_float_number_copy) == -1 {
+								return BoolNode{
+									Value: 1,
+								}
+							}
+
+						}
+					}
+				}
+			case INTEGER:
+				{
+					switch _right.Type {
+					case FLOAT:
+						{
+							left_float_number_copy := new(big.Float).SetInt(&number.Value)
+							right_float_number_copy := new(big.Float).Set(&_right.FValue)
+
+							if left_float_number_copy.Cmp(right_float_number_copy) == -1 {
+								return BoolNode{
+									Value: 1,
+								}
+							}
+						}
+					case INTEGER:
+						{
+							left_float_number_copy := new(big.Int).Set(&number.Value)
+							right_float_number_copy := new(big.Int).Set(&_right.Value)
+
+							if left_float_number_copy.Cmp(right_float_number_copy) == -1 {
+								return BoolNode{
+									Value: 1,
+								}
+							}
+						}
+					}
 				}
 			}
+
 		}
 	}
 
@@ -662,14 +1141,70 @@ func (numberNode *NumberNode) IsLessThan(value interface{}) BoolNode {
 }
 
 // IsLessThanOrEqualsTo
-func (numberNode *NumberNode) IsLessThanOrEqualsTo(value interface{}) BoolNode {
-	switch _rvalue := value.(type) {
+func (number *NumberNode) IsLessThanOrEqualsTo(value interface{}) BoolNode {
+	switch _right := value.(type) {
 	case NumberNode:
 		{
-			_cmp := numberNode.Value.Cmp(&_rvalue.Value)
-			if _cmp == -1 || _cmp == 0 {
-				return BoolNode{
-					Value: 1,
+			switch number.Type {
+			case FLOAT:
+				{
+					switch _right.Type {
+					case FLOAT:
+						{
+							left_float_number_copy := new(big.Float).Set(&number.FValue)
+							right_float_number_copy := new(big.Float).Set(&_right.FValue)
+
+							_comp := left_float_number_copy.Cmp(right_float_number_copy)
+							if _comp == -1 || _comp == 0 {
+								return BoolNode{
+									Value: 1,
+								}
+							}
+						}
+					case INTEGER:
+						{
+
+							left_float_number_copy := new(big.Float).Set(&number.FValue)
+							right_float_number_copy := new(big.Float).SetInt(&_right.Value)
+
+							_comp := left_float_number_copy.Cmp(right_float_number_copy)
+							if _comp == -1 || _comp == 0 {
+								return BoolNode{
+									Value: 1,
+								}
+							}
+
+						}
+					}
+				}
+			case INTEGER:
+				{
+					switch _right.Type {
+					case FLOAT:
+						{
+							left_float_number_copy := new(big.Float).SetInt(&number.Value)
+							right_float_number_copy := new(big.Float).Set(&_right.FValue)
+
+							_comp := left_float_number_copy.Cmp(right_float_number_copy)
+							if _comp == -1 || _comp == 0 {
+								return BoolNode{
+									Value: 1,
+								}
+							}
+						}
+					case INTEGER:
+						{
+							left_float_number_copy := new(big.Int).Set(&number.Value)
+							right_float_number_copy := new(big.Int).Set(&_right.Value)
+
+							_comp := left_float_number_copy.Cmp(right_float_number_copy)
+							if _comp == -1 || _comp == 0 {
+								return BoolNode{
+									Value: 1,
+								}
+							}
+						}
+					}
 				}
 			}
 		}
@@ -686,17 +1221,9 @@ type StringNode struct {
 
 func (stringNode *StringNode) Add(right interface{}) interface{} {
 	switch _right := right.(type) {
-	case NumberNode:
-		{
-			return StringNode{
-				Value: fmt.Sprintf("%s %d", stringNode.Value, _right.Value),
-			}
-		}
-	case StringNode:
-		{
-			return StringNode{
-				Value: fmt.Sprintf("%s%s", stringNode.Value, _right.Value),
-			}
+	case NumberNode, StringNode:
+		return StringNode{
+			Value: fmt.Sprintf("%s%s", stringNode.Value, Print(_right)),
 		}
 	}
 
@@ -708,15 +1235,24 @@ func (stringNode *StringNode) Add(right interface{}) interface{} {
 }
 
 func (stringNode *StringNode) Mul(right interface{}) interface{} {
+
+	// ensure the number has type integer if not throw an error buana
+
 	switch _right := right.(type) {
 	case NumberNode:
 		{
+			// ensure the number is integer
+			if _right.Type == FLOAT {
+				goto error_exit
+			}
+
 			return StringNode{
 				Value: strings.Repeat(stringNode.Value, int(_right.Value.Int64())),
 			}
 		}
 	}
 
+error_exit:
 	return ExceptionNode{
 		Type:    INVALID_OPERATION_EXCEPTION,
 		Message: "Operation not supported in strings",
@@ -749,6 +1285,7 @@ func (stringNode *StringNode) Sub(right interface{}) interface{} {
 func (stringNode StringNode) Length() NumberNode {
 	// the number node is a big integer stuff :)
 	return NumberNode{
+		Type:  INTEGER,
 		Value: *big.NewInt(int64(len(stringNode.Value))),
 	}
 }
@@ -759,7 +1296,10 @@ func (stringNode StringNode) Get(index int64) interface{} {
 	result = *result.Sub(&result, big.NewInt(1))
 
 	if index < 0 || result.Cmp(big.NewInt(index)) == -1 {
-		return NilNode{}
+		return ExceptionNode{
+			Type:    INVALID_INDEX_EXCEPTION,
+			Message: "Invalid index access",
+		}
 	}
 
 	return StringNode{
@@ -775,7 +1315,10 @@ func (stringNode StringNode) Range(start int64, end int64) interface{} {
 
 	// check for the constraints
 	if start < 0 || _startCmp == 1 || end < 0 || _endCmp == 1 {
-		return NilNode{}
+		return ExceptionNode{
+			Type:    INVALID_INDEX_EXCEPTION,
+			Message: "Invalid range access limits; Ensure the limits are within the array",
+		}
 	}
 
 	return StringNode{
@@ -804,7 +1347,7 @@ func (stringNode *StringNode) IsGreaterThan(value interface{}) BoolNode {
 	switch _rvalue := value.(type) {
 	case StringNode:
 		{
-			if strings.Compare(stringNode.Value, _rvalue.Value) > 1 {
+			if stringNode.Value > _rvalue.Value {
 				return BoolNode{
 					Value: 1,
 				}
@@ -822,7 +1365,7 @@ func (stringNode *StringNode) IsGreaterThanOrEqualsTo(value interface{}) BoolNod
 	switch _rvalue := value.(type) {
 	case StringNode:
 		{
-			if strings.Compare(stringNode.Value, _rvalue.Value) == 0 || strings.Compare(stringNode.Value, _rvalue.Value) > 1 {
+			if stringNode.Value == _rvalue.Value || stringNode.Value > _rvalue.Value {
 				return BoolNode{
 					Value: 1,
 				}

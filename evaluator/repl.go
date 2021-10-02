@@ -41,7 +41,7 @@ func REPL() {
 	for ; shouldContinue(text); text = get(reader) {
 		lexer := InitLexer(text)
 		parser := InitParser(lexer.Lex(), lexer.SplitCode)
-		fmt.Println(_print(evaluator.ReplExecute(parser.Parse())))
+		fmt.Println(Print(evaluator.ReplExecute(parser.Parse())))
 		printRepl()
 	}
 

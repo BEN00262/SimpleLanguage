@@ -101,12 +101,20 @@ func (lexer *Lexer) Lex() []Token {
 			_start_position_ := lexer.currentPosition
 
 			// we want to get all the number
+			// also check for a . indicating a decimal number also monitor the numbers of zero we have
 
-			for ; lexer.currentPosition < len(lexer.code) && unicode.IsDigit(lexer.CurrentLexeme()); lexer.currentPosition++ {
+			for ; lexer.currentPosition < len(lexer.code) && (unicode.IsDigit(lexer.CurrentLexeme()) || lexer.CurrentLexeme() == '.'); lexer.currentPosition++ {
 
 			}
 
 			_number_ := lexer.code[_start_position_:lexer.currentPosition]
+
+			// check if the numbers of . is more than one if so just throw an error here
+			if strings.Count(_number_, ".") > 1 {
+				panic("Too many points")
+			}
+
+			// fmt.Println(_number_)
 
 			lexer.currentPosition -= 1
 

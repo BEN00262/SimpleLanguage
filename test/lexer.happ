@@ -1,4 +1,8 @@
-import "tokens.si"
+def VARIABLE = 0
+def NUMBER = 1
+def UNKNOWN = 2
+def OPERATOR = 3
+def EQUALS = 4
 
 def letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
@@ -78,3 +82,5 @@ fun Lexer(code) {
 
     return Tokens
 }
+
+print(Lexer("name = 89"))

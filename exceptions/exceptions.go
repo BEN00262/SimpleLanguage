@@ -20,6 +20,7 @@ const (
 	INTERNAL_RETURN_EXCEPTION          = "InternalReturnException"
 	DIVISION_BY_ZERO_EXCEPTION         = "DivisionByZeroException"
 	ACCESS_VIOLATION_EXCEPTION         = "AccessViolationException"
+	INTERNAL_BREAK_EXCEPTION           = "InternalBreakException"
 )
 
 func LoadExceptionsToScope() []string {

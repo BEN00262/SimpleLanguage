@@ -20,7 +20,7 @@ func (parser *Parser) reportError(token Token, errorMessage ...string) {
 
 	// input[:index] + string(replacement) + input[index+1:]
 	_actual_line_ := parser.ActualCode[token.Line]
-	_end_index_ := token.ColumnStart + token.Span + 1
+	_end_index_ := token.ColumnStart + token.Span
 
 	fmt.Printf(
 		"%s %s\n\n",

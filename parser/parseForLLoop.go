@@ -1,42 +1,11 @@
 package parser
 
 import (
-	"fmt"
-
 	. "github.com/BEN00262/simpleLang/lexer"
 )
 
-func (parser *Parser) _parseForLoop() []interface{} {
-	var _whileBody []interface{}
-	_currentToken := parser.CurrentToken()
-
-	// get the current Token --> proceed --> the problem starts with the expressions
-
-	for parser.CurrentPosition < parser.TokensLength && !IsTypeAndValue(_currentToken, CURLY_BRACES, "}") {
-		_whileBody = append(_whileBody, parser._parse(_currentToken))
-		_currentToken = parser.CurrentToken()
-	}
-
-	// parser.CurrentPosition -= 1 // one for the while loop and the other increment for the shit in parseExpression
-	return _whileBody
-}
-
 func (parser *Parser) parseWhileLoop() interface{} {
-	// expect {
-	parser.IsExpectedEatElsePanic(
-		parser.CurrentToken(),
-		CURLY_BRACES, "{",
-		fmt.Sprintf("Expected '{' but got a '%#v'", parser.CurrentToken().Value),
-	)
-
-	_for_body_ := parser._parseForLoop()
-
-	// expect }
-	parser.IsExpectedEatElsePanic(
-		parser.CurrentToken(),
-		CURLY_BRACES, "}",
-		fmt.Sprintf("Expected '}' but got a '%#v'", parser.CurrentToken().Value),
-	)
+	_for_body_ := parser.parseBlockScope()
 
 	return ForNode{
 		Type:    WHILE_FOREVER,
@@ -96,21 +65,7 @@ func (parser *Parser) ParseForLoop() interface{} {
 			"Expected a ')'",
 		)
 
-		// expect {
-		parser.IsExpectedEatElsePanic(
-			parser.CurrentToken(),
-			CURLY_BRACES, "{",
-			"Expected a '{'",
-		)
-
-		_for_body_ := parser._parseForLoop()
-
-		// expect }
-		parser.IsExpectedEatElsePanic(
-			parser.CurrentToken(),
-			CURLY_BRACES, "}",
-			"Expected a '}'",
-		)
+		_for_body_ := parser.parseBlockScope()
 
 		return ForNode{
 			Type:           FOR_NODE,
@@ -134,21 +89,7 @@ func (parser *Parser) ParseForLoop() interface{} {
 		"Expected a ')'",
 	)
 
-	// expect {
-	parser.IsExpectedEatElsePanic(
-		parser.CurrentToken(),
-		CURLY_BRACES, "{",
-		"Expected a '{'",
-	)
-
-	_forBody := parser._parseForLoop()
-
-	// expect }
-	parser.IsExpectedEatElsePanic(
-		parser.CurrentToken(),
-		CURLY_BRACES, "}",
-		"Expected a '}'",
-	)
+	_forBody := parser.parseBlockScope()
 
 	return ForNode{
 		Type:      WHILE_CONDITIONAL,

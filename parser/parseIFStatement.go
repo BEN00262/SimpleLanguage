@@ -12,46 +12,18 @@ func (parser *Parser) ParseIfStatement() interface{} {
 	)
 
 	condition := parser._parseExpression()
-
-	parser.IsExpectedEatElsePanic(
-		parser.CurrentToken(),
-		CURLY_BRACES, "{",
-		"Expected a '{'",
-	)
-
-	thenBody := parser._parseForLoop()
+	thenBody := parser.parseBlockScope()
 
 	var elseBodies []interface{}
 
-	parser.IsExpectedEatElsePanic(
-		parser.CurrentToken(),
-		CURLY_BRACES, "}",
-		"Expected a '}'",
-	)
-
 	if IsTypeAndValue(parser.CurrentToken(), KEYWORD, ELSE) {
-		parser.eatToken()
+		parser.eatToken() // else
 
 		if IsTypeAndValue(parser.CurrentToken(), KEYWORD, IF) {
 			elseBodies = append(elseBodies, parser.ParseIfStatement())
 		} else {
-			parser.IsExpectedEatElsePanic(
-				parser.CurrentToken(),
-				CURLY_BRACES, "{",
-				"Expected a '{'",
-			)
-
-			elseBodies = append(elseBodies, BlockNode{
-				Code: parser._parseForLoop(),
-			})
-
-			parser.IsExpectedEatElsePanic(
-				parser.CurrentToken(),
-				CURLY_BRACES, "}",
-				"Expected a '}'",
-			)
+			elseBodies = append(elseBodies, parser.parseBlockScope())
 		}
-
 	}
 
 	return IFNode{

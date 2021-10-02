@@ -1,0 +1,43 @@
+# hacker rank problems
+# Fraudulence detection problem in basic algorithms
+# Implemented on 10/2/2021 by John Kerama <johnnesta2018@gmail.com>
+
+fun swap(array, index1, index2) {
+    def element1 = array[index1]
+    def element2 = array[index2]
+
+    insertAt(array, index1, element2)
+    insertAt(array, index2, element1)
+
+    return array
+}
+
+fun sort(array) {
+    def arrayLength = len(array)
+
+    for(def i = 0; i < arrayLength; i + 1) {
+        for(def j = 0; j < arrayLength - 1; j + 1) {
+
+            if array[j] > array[j+1] {
+                swap(array, j, j + 1)
+            }
+        }
+    }
+
+    return array
+}
+
+fun median(array) {
+    def arrayLength = len(array)
+
+    # first sort the array in ascending order
+    array = sort(array)
+
+    if arrayLength % 2 == 0 {
+        def left = arrayLength / 2
+        def right = left + 1
+
+        return (array[left] + array[right])/2
+    }
+
+}

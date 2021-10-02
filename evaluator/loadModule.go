@@ -29,7 +29,7 @@ type ImportModule struct {
 }
 
 // how tf do we work with imports to the same file across board
-func (eval *Evaluator) loadModule(module Import) ExceptionNode {
+func (eval *Evaluator) LoadModule(module Import) ExceptionNode {
 	// ensure the filename exists --> also check for errors in the lexer and the parser too
 	// have a * we dump to the global scope
 	// otherwise we namespace

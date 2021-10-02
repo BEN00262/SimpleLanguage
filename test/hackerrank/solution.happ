@@ -1,0 +1,44 @@
+# hacker rank problems
+# counting number of bubble sort algorithm swaps
+# Implemented on 10/2/2021 by John Kerama <johnnesta2018@gmail.com>
+
+fun swap(array, index1, index2) {
+    def element1 = array[index1]
+    def element2 = array[index2]
+
+    insertAt(array, index1, element2)
+    insertAt(array, index2, element1)
+
+    return array
+}
+
+fun bubbleSort(array) {
+    def arrayLength = len(array)
+    def swapCounter = 0
+
+    print("swap         array")
+    print("{swapCounter}            {array}")
+
+    for(def i = 0; i < arrayLength; i + 1) {
+        for(def j = 0; j < arrayLength - 1; j + 1) {
+            if array[j] > array[j + 1] {
+                swap(array, j, j + 1)
+                print("{swapCounter+1}            {array}")
+                swapCounter = swapCounter + 1
+            }
+        }
+    }
+
+    # the final solution
+    print("")
+    print("######################################")
+
+    print("Array is sorted in {swapCounter - 1} steps")
+    print("First Element: {array[0]}")
+    print("Last Element: {array[arrayLength - 1]}")
+
+    print("######################################")
+}
+
+# the solution
+bubbleSort([3,2,1])

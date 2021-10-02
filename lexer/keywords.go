@@ -21,4 +21,6 @@ const (
 	CONST     = "const"
 	NAMESPACE = "namespace"
 	EXPOSE    = "expose"
+	AND       = "and"
+	OR        = "or"
 )

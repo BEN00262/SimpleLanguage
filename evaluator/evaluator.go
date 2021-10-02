@@ -77,26 +77,20 @@ func (eval *Evaluator) TearDownRepl() {
 // we can use the exceptions i think
 
 func (eval *Evaluator) executeFunctionCode(code []interface{}) (interface{}, ExceptionNode) {
-	var returnValue interface{}
-	var exception ExceptionNode
-
 	for _, _code := range code {
-		returnValue, exception = eval.walkTree(_code)
+		returnValue, exception := eval.walkTree(_code)
+
+		if exception.Type == INTERNAL_RETURN_EXCEPTION {
+			return returnValue, ExceptionNode{Type: NO_EXCEPTION}
+		}
 
 		if exception.Type != NO_EXCEPTION {
 			return nil, exception
 		}
 
-		switch _val := returnValue.(type) {
-		case ReturnNode:
-			{
-				// we need a way to break the loop of execution
-				return _val.Expression, ExceptionNode{Type: INTERNAL_RETURN_EXCEPTION}
-			}
-		}
 	}
 
-	return returnValue, ExceptionNode{Type: NO_EXCEPTION}
+	return NilNode{}, ExceptionNode{Type: NO_EXCEPTION}
 }
 
 var (
@@ -194,34 +188,14 @@ func Compare(comp Comparison, op string, rhs interface{}) (BoolNode, ExceptionNo
 func (eval *Evaluator) _stringInterpolate(stringNode StringNode) (StringNode, ExceptionNode) {
 	for _, stringBlock := range INTERPOLATION.FindAllStringSubmatch(stringNode.Value, -1) {
 		if stringBlock != nil {
-			_interpolated_string_ := ""
-			// fetch the interpolator from the current context
-			// we should actually evaluate it as an expression --> its gonna be slow AF
-			// if u use it in a loop fuck u
-
-			// evaluate the value and get the results
-			// value, _ := eval.symbolsTable.GetFromContext(stringBlock[1])
-
-			// optimize the _eval stuff
 			_value_, exception := eval._eval(stringBlock[1])
 
 			if exception.Type != NO_EXCEPTION {
+				// TODO: look at this again
 				return StringNode{}, exception
 			}
 
-			switch _value := _value_.(type) {
-			case NumberNode:
-				{
-					// do the work and change the values
-					_interpolated_string_ = _value.Value.Text(10)
-				}
-			case StringNode:
-				{
-					_interpolated_string_ = fmt.Sprintf("%s", _value.Value)
-				}
-			}
-
-			stringNode.Value = strings.ReplaceAll(stringNode.Value, stringBlock[0], _interpolated_string_)
+			stringNode.Value = strings.ReplaceAll(stringNode.Value, stringBlock[0], Print(_value_))
 		}
 	}
 
@@ -243,28 +217,14 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 				}
 			}
 
-			_parsedValue := (*_value).(SymbolTableValue)
-
-			// this will remain that way --> we need a way to actually throw the exception
-			return _parsedValue.Value, ExceptionNode{Type: NO_EXCEPTION}
+			return ((*_value).(SymbolTableValue)).Value, ExceptionNode{Type: NO_EXCEPTION}
 		}
 	case TryCatchNode:
 		{
-			// evaluate the try catch stuff
-			// find a way to throw errors
-			// this errors will be used then
-			// if we get an exception node just pass it down the line
-			// in the case of this one tuko poa
-			// now check the result and find the exception
-
 			return eval.evaluateTryCatchFinally(_node)
 		}
 	case RaiseExceptionNode:
 		{
-			// raise exception("something", "some explanation")
-			// we just return the exeption
-			// the result should be an exception node
-
 			_result, _exception := eval.walkTree(_node.Exception)
 
 			if _exception.Type != NO_EXCEPTION {
@@ -282,21 +242,14 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 		}
 	case ArrayNode:
 		{
-			// handle the array node shit
-			// return stuff here
-			// also implement a type check for arrays in the symbols table
 			var _array_elements_ []interface{}
 
 			for _, _element_ := range _node.Elements {
 				_element, exception := eval.walkTree(_element_)
 
-				// we check if the exception returned is not an ok exception if so just exit
 				if exception.Type != NO_EXCEPTION {
 					return nil, exception
 				}
-
-				// we need to check if the element is of type exeception if it is cease the execution and find a catch
-				// pass the error back until we reach a handler and if not just throw and exception
 
 				_array_elements_ = append(_array_elements_, _element)
 			}
@@ -312,97 +265,80 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 				eval.IsExported = false
 			})(eval)
 
-			_, _exception := eval.walkTree(_node.Exported)
-			return nil, _exception
+			return eval.walkTree(_node.Exported)
 		}
 	case IFNode:
 		{
-			eval.symbolsTable.PushContext()
-			defer eval.symbolsTable.PopContext()
-
 			_condition, _ := eval.walkTree(_node.Condition)
+			_bool_condition, ok := _condition.(BoolNode) // ensure thats this is a bool node btw
 
-			_bool_condition := _condition.(BoolNode)
-
-			if _bool_condition.Value == 1 {
-				for _, _code := range _node.ThenBody {
-					res, exception := eval.walkTree(_code)
-
-					if exception.Type != NO_EXCEPTION {
-						return nil, exception
-					}
-
-					// check for the return type
-					switch _node_ := res.(type) {
-					case BreakNode:
-						{
-							return BreakNode{}, ExceptionNode{Type: NO_EXCEPTION}
-						}
-					case ReturnNode:
-						{
-							return _node_, ExceptionNode{Type: NO_EXCEPTION}
-						}
-					}
-				}
-
-				return nil, ExceptionNode{Type: NO_EXCEPTION}
-			} else {
-				// we could have thrown an error in other languages but we cant here fuck
-				for _, _code := range _node.ElseBody {
-					res, exception := eval.walkTree(_code)
-
-					if exception.Type != NO_EXCEPTION {
-						return nil, exception
-					}
-
-					// check if the
-					switch _node_ := res.(type) {
-					case ReturnNode:
-						{
-							return res, ExceptionNode{Type: NO_EXCEPTION}
-						}
-					case BreakNode:
-						{
-							// check the state we are in if it allows this
-							return _node_, ExceptionNode{Type: NO_EXCEPTION}
-						}
-					}
+			if !ok {
+				return nil, ExceptionNode{
+					Type:    INVALID_OPERATION_EXCEPTION,
+					Message: "Conditional expression did not evaluate to a boolean expression",
 				}
 			}
 
-			return nil, ExceptionNode{Type: NO_EXCEPTION}
+			if _bool_condition.True() {
+				_res, _exception := eval.walkTree(_node.ThenBody)
+
+				switch _exception.Type {
+				case INTERNAL_RETURN_EXCEPTION, INTERNAL_BREAK_EXCEPTION:
+					{
+						// follow the execution of this
+						return _res, _exception
+					}
+				case NO_EXCEPTION:
+					{
+						return nil, ExceptionNode{Type: NO_EXCEPTION}
+					}
+				default:
+					return nil, _exception
+				}
+			} else {
+				for _, _blocks := range _node.ElseBody {
+					_res, _exception := eval.walkTree(_blocks)
+
+					switch _exception.Type {
+					case INTERNAL_RETURN_EXCEPTION, INTERNAL_BREAK_EXCEPTION:
+						{
+							return _res, _exception
+						}
+					case NO_EXCEPTION:
+						{
+							return nil, ExceptionNode{Type: NO_EXCEPTION}
+						}
+					default:
+						return nil, _exception
+					}
+				}
+			}
 		}
 	case BlockNode:
 		{
+			// scope
 			eval.symbolsTable.PushContext()
 			defer eval.symbolsTable.PopContext()
 
 			for _, _code := range _node.Code {
-				// we can throw errors in golang
 				ret, exception := eval.walkTree(_code)
+
+				if exception.Type == INTERNAL_RETURN_EXCEPTION {
+					return ret, exception
+				}
+
+				if exception.Type == INTERNAL_BREAK_EXCEPTION {
+					return nil, ExceptionNode{Type: INTERNAL_BREAK_EXCEPTION}
+				}
 
 				if exception.Type != NO_EXCEPTION {
 					return nil, exception
-				}
-
-				// ensure the return is not a break node or return node if so just return a nil
-				switch _node := ret.(type) {
-				case ReturnNode:
-					{
-						return ReturnNode{
-							Expression: _node.Expression,
-						}, ExceptionNode{Type: NO_EXCEPTION}
-					}
-				case BreakNode:
-					{
-						return BreakNode{}, ExceptionNode{Type: NO_EXCEPTION}
-					}
 				}
 			}
 		}
 	case BreakNode:
 		{
-			return _node, ExceptionNode{Type: NO_EXCEPTION}
+			return nil, ExceptionNode{Type: INTERNAL_BREAK_EXCEPTION}
 		}
 	case NilNode:
 		{
@@ -410,14 +346,13 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 		}
 	case ReturnNode:
 		{
-			//
 			_ret, exception := eval.walkTree(_node.Expression)
 
 			if exception.Type != NO_EXCEPTION {
 				return nil, exception
 			}
 
-			return ReturnNode{Expression: _ret}, ExceptionNode{Type: NO_EXCEPTION}
+			return _ret, ExceptionNode{Type: INTERNAL_RETURN_EXCEPTION}
 		}
 	case ForNode:
 		{
@@ -431,32 +366,21 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 				{
 					// we just execute the code forever until we get a break statement and exit
 					// execute this over and over again
-					isExecuting := true
 
-					for isExecuting {
+					for {
 						// we start executing the body of the loop
-						for _, _code := range _node.ForBody {
-							retToken, exception := eval.walkTree(_code)
+						_ret, _exception := eval.walkTree(_node.ForBody)
 
-							if exception.Type != NO_EXCEPTION {
-								return nil, exception
-							}
+						if _exception.Type == INTERNAL_RETURN_EXCEPTION {
+							return _ret, _exception
+						}
 
-							// we return the return node and the break node
+						if _exception.Type == INTERNAL_BREAK_EXCEPTION {
+							return nil, ExceptionNode{Type: NO_EXCEPTION}
+						}
 
-							// if the token is a break statement just exit the execution
-							switch _node_ := retToken.(type) {
-							case BreakNode:
-								{
-									isExecuting = false
-								}
-							case ReturnNode:
-								{
-									// we have a return node
-									// send an exception to be handled by the function thing
-									return _node_, ExceptionNode{Type: NO_EXCEPTION}
-								}
-							}
+						if _exception.Type != NO_EXCEPTION {
+							return nil, _exception
 						}
 					}
 				}
@@ -509,22 +433,18 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 					*/
 
 					for _condition_bool_.True() {
+						_ret, _exception := eval.walkTree(_node.ForBody)
 
-						// one loop of execution
-						// this is a hot piece of code ---> we should jit this thing
-						for _, _code := range _node.ForBody {
-							retToken, exception := eval.walkTree(_code)
+						if _exception.Type == INTERNAL_RETURN_EXCEPTION {
+							return _ret, _exception
+						}
 
-							if exception.Type != NO_EXCEPTION {
-								return nil, exception
-							}
+						if _exception.Type == INTERNAL_BREAK_EXCEPTION {
+							return nil, ExceptionNode{Type: NO_EXCEPTION}
+						}
 
-							switch _node_ := retToken.(type) {
-							case BreakNode:
-								goto valid_loop_exit
-							case ReturnNode:
-								return _node_, ExceptionNode{Type: NO_EXCEPTION}
-							}
+						if _exception.Type != NO_EXCEPTION {
+							return nil, _exception
 						}
 
 						_increment_return_value_, exception := eval.walkTree(_node.Increment)
@@ -536,10 +456,8 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 						if _increment_return_value, ok := _increment_return_value_.(NumberNode); ok {
 							// push the value to the symbols table again which is not good buana
 							eval.symbolsTable.PushToContext(_initialization.Lvalue, SymbolTableValue{
-								Type: VALUE,
-								Value: NumberNode{
-									Value: _increment_return_value.Value,
-								},
+								Type:  VALUE,
+								Value: _increment_return_value,
 							})
 
 							// re-evaluate the condition again
@@ -598,20 +516,19 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 					}
 
 					for _condition_bool_.True() {
-						for _, _code := range _node.ForBody {
-							retToken, exception := eval.walkTree(_code)
 
-							if exception.Type != NO_EXCEPTION {
-								return nil, exception
-							}
+						_ret, _exception := eval.walkTree(_node.ForBody)
 
-							// if the token is a break statement just exit the execution
-							switch _node_ := retToken.(type) {
-							case BreakNode:
-								goto valid_loop_exit
-							case ReturnNode:
-								return _node_, ExceptionNode{Type: NO_EXCEPTION}
-							}
+						if _exception.Type == INTERNAL_RETURN_EXCEPTION {
+							return _ret, _exception
+						}
+
+						if _exception.Type == INTERNAL_BREAK_EXCEPTION {
+							return nil, ExceptionNode{Type: NO_EXCEPTION}
+						}
+
+						if _exception.Type != NO_EXCEPTION {
+							return nil, _exception
 						}
 
 						// re-evaluate the condition again
@@ -641,6 +558,69 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 			// first check if the string is being interpolated if so interpolate it
 			return eval._stringInterpolate(_node)
 		}
+	case LogicalComparison:
+		{
+			_lhs, _exception := eval.walkTree(_node.Lhs)
+
+			if _exception.Type != NO_EXCEPTION {
+				return nil, ExceptionNode{Type: NO_EXCEPTION}
+			}
+
+			_lhs_boolean_, ok := _lhs.(BoolNode)
+
+			if !ok {
+				return nil, ExceptionNode{
+					Type:    INVALID_OPERATION_EXCEPTION,
+					Message: "lhs a boolean",
+				}
+			}
+
+			_rhs, _exception := eval.walkTree(_node.Rhs)
+
+			if _exception.Type != NO_EXCEPTION {
+				return nil, ExceptionNode{Type: NO_EXCEPTION}
+			}
+
+			_rhs_boolean_, ok := _rhs.(BoolNode)
+
+			if !ok {
+				return nil, ExceptionNode{
+					Type:    INVALID_OPERATION_EXCEPTION,
+					Message: "lhs a boolean",
+				}
+			}
+
+			// check the type of the comparator and do stuff
+			switch _node.Type {
+			case AND_COMPARATOR:
+				{
+					// combine the results and return a result
+					if _lhs_boolean_.True() && _rhs_boolean_.True() {
+						return BoolNode{
+							Value: 1,
+						}, ExceptionNode{Type: NO_EXCEPTION}
+					}
+
+					return BoolNode{
+						Value: 0,
+					}, ExceptionNode{Type: NO_EXCEPTION}
+				}
+			case OR_COMPARATOR:
+				{
+					// combine the results and return a result
+					if _lhs_boolean_.True() || _rhs_boolean_.True() {
+						return BoolNode{
+							Value: 1,
+						}, ExceptionNode{Type: NO_EXCEPTION}
+					}
+
+					return BoolNode{
+						Value: 0,
+					}, ExceptionNode{Type: NO_EXCEPTION}
+				}
+			}
+
+		}
 	case IIFENode:
 		{
 			// we just call the anonymous function and parse the args
@@ -657,14 +637,7 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 				}
 			}
 
-			_ret, _exception := eval.executeFunctionCode(_function_decl_.Code)
-
-			// check if the exception is of INTERNAL_RETURN_EXCEPTION if so just return the results
-			if _exception.Type == INTERNAL_RETURN_EXCEPTION {
-				return _ret, ExceptionNode{Type: NO_EXCEPTION}
-			}
-
-			return _ret, _exception
+			return eval.executeFunctionCode(_function_decl_.Code)
 		}
 	case NumberNode:
 		{
@@ -797,14 +770,6 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 				return _function_decl_.Function(_args...)
 			}
 
-			var returnValue interface{}
-			var exception ExceptionNode
-
-			// we are pushing the scopes here
-			// push a normal scope --> otherwise we should kind of get a refernce to the main scope
-			// i think of the function
-
-			// before we jump into this context please place the other context
 			if _function.ReferenceToScope != nil {
 				eval.symbolsTable.CopyContextToTop(*_function.ReferenceToScope)
 				defer eval.symbolsTable.PopContext()
@@ -854,20 +819,7 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 						})
 					}
 
-					// push all the args to the new scope here -> we should switch right here
-					// i think or am wrong i dunno
-
-					// this is the place we are executing the functions
-					returnValue, exception = eval.executeFunctionCode(_function_decl_.Code)
-
-					// check if the exception is of INTERNAL_RETURN_EXCEPTION if so just return the results
-					if exception.Type == INTERNAL_RETURN_EXCEPTION {
-						return returnValue, ExceptionNode{Type: NO_EXCEPTION}
-					}
-
-					if exception.Type != NO_EXCEPTION {
-						return nil, exception
-					}
+					return eval.executeFunctionCode(_function_decl_.Code)
 				}
 			case AnonymousFunction:
 				{
@@ -904,20 +856,11 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 						})
 					}
 
-					returnValue, exception = eval.executeFunctionCode(_function_decl_.Code)
-
-					// check if the exception is of INTERNAL_RETURN_EXCEPTION if so just return the results
-					if exception.Type == INTERNAL_RETURN_EXCEPTION {
-						return returnValue, ExceptionNode{Type: NO_EXCEPTION}
-					}
-
-					if exception.Type != NO_EXCEPTION {
-						return nil, exception
-					}
+					return eval.executeFunctionCode(_function_decl_.Code)
 				}
 			}
 
-			return returnValue, ExceptionNode{Type: NO_EXCEPTION}
+			return nil, ExceptionNode{Type: NO_EXCEPTION}
 		}
 	case BoolNode:
 		{
@@ -1009,7 +952,13 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 					switch _node.Type {
 					case NORMAL:
 						{
-							return _implemented.Get(_index_.Value.Int64()), ExceptionNode{Type: NO_EXCEPTION}
+							_return := _implemented.Get(_index_.Value.Int64())
+
+							if _exception, ok := _return.(ExceptionNode); ok {
+								return nil, _exception
+							}
+
+							return _return, ExceptionNode{Type: NO_EXCEPTION}
 						}
 					case RANGE:
 						{
@@ -1020,7 +969,13 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 							}
 
 							if _eIndex_, ok := _end_index_.(NumberNode); ok {
-								return _implemented.Range(_index_.Value.Int64(), _eIndex_.Value.Int64()), ExceptionNode{Type: NO_EXCEPTION}
+								_return := _implemented.Range(_index_.Value.Int64(), _eIndex_.Value.Int64())
+
+								if _exception, ok := _return.(ExceptionNode); ok {
+									return nil, _exception
+								}
+
+								return _return, ExceptionNode{Type: NO_EXCEPTION}
 							}
 						}
 					}
@@ -1029,7 +984,7 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 				// fmt.Errorf("Failed to fetch element at the given index")
 				return nil, ExceptionNode{
 					Type:    INVALID_INDEX_EXCEPTION,
-					Message: fmt.Sprintf("Failed to fetch element at the given index '%d'", _index_.Value),
+					Message: fmt.Sprintf("Failed to fetch element at the given index '%s'", Print(_index_)),
 				}
 			}
 
@@ -1086,7 +1041,7 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 		{
 			// we need to pass back the exception
 			// we create something else our own stuff
-			return nil, eval.loadModule(_node)
+			return nil, eval.LoadModule(_node)
 		}
 	case ConditionNode:
 		{
@@ -1097,6 +1052,7 @@ func (eval *Evaluator) walkTree(node interface{}) (interface{}, ExceptionNode) {
 				return nil, exception
 			}
 
+			// BUG
 			_rhs, exception := eval.walkTree(_node.Rhs)
 
 			if exception.Type != NO_EXCEPTION {

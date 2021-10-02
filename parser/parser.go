@@ -170,15 +170,34 @@ func (parser *Parser) _parseFactor() interface{} {
 	} else if _currentToken.Type == NUMBER {
 		parser.eatToken()
 
-		_number, isSuccess := new(big.Int).SetString(_currentToken.Value.(string), 0)
+		// tuko hapa buana
+		// fmt.Println(_currentToken)
+		_raw_number_ := _currentToken.Value.(string)
+
+		// check if there are any . in the number if there are we have a float
+		// improve this later
+		if strings.Contains(_raw_number_, ".") {
+			_number, isSuccess := new(big.Float).SetString(_raw_number_)
+
+			if !isSuccess {
+				parser.reportError(_currentToken)
+			}
+
+			return NumberNode{
+				Type:   FLOAT,
+				FValue: *_number,
+			}
+
+		}
+
+		_number, isSuccess := new(big.Int).SetString(_raw_number_, 0)
 
 		if !isSuccess {
-			// show the number
 			parser.reportError(_currentToken)
-			panic("Failed to convert number")
 		}
 
 		return NumberNode{
+			Type:  INTEGER,
 			Value: *_number,
 		}
 	} else if IsTypeAndValue(_currentToken, SQUARE_BRACKET, "[") {
@@ -291,32 +310,9 @@ func (parser *Parser) _parseTerm() interface{} {
 	return factor
 }
 
-func (parser *Parser) _parseExpression() interface{} {
-	_lhs := parser._parseComparison()
-
-	_currentToken := parser.CurrentToken()
-
-	// this fuckers should eat their shit
-	if _currentToken.Type == CONDITION && Contains([]string{"!=", "=="}, _currentToken.Value.(string)) {
-		parser.eatToken()
-
-		_expression := parser._parseExpression()
-
-		return ConditionNode{
-			Operator: _currentToken.Value.(string),
-			Rhs:      _expression,
-			Lhs:      _lhs,
-		}
-	}
-
-	return _lhs
-}
-
 func (parser *Parser) _parseInnerComparison() interface{} {
 	term := parser._parseTerm()
 	termTail := parser._parseTermTail()
-
-	// this iss weird
 
 	if termTail != nil {
 		_termTail := termTail.(BinaryNode)
@@ -341,6 +337,53 @@ func (parser *Parser) _parseComparison() interface{} {
 			Lhs:      _lhs,
 			Rhs:      _rhs,
 			Operator: _currentToken.Value.(string),
+		}
+	}
+
+	return _lhs
+}
+
+func (parser *Parser) _parseEqualsNotEquals() interface{} {
+	_lhs := parser._parseComparison()
+
+	_currentToken := parser.CurrentToken()
+
+	// this fuckers should eat their shit
+	if _currentToken.Type == CONDITION && Contains([]string{"!=", "=="}, _currentToken.Value.(string)) {
+		parser.eatToken()
+
+		_expression := parser._parseComparison()
+
+		return ConditionNode{
+			Operator: _currentToken.Value.(string),
+			Rhs:      _expression,
+			Lhs:      _lhs,
+		}
+	}
+
+	return _lhs
+}
+
+// we need to parse 'and' and 'or' too buana
+func (parser *Parser) _parseExpression() interface{} {
+	_lhs := parser._parseEqualsNotEquals()
+	_currentToken := parser.CurrentToken()
+
+	if _currentToken.Type == KEYWORD && (_currentToken.Value.(string) == OR || _currentToken.Value.(string) == AND) {
+		// we eat the token
+		parser.eatToken()
+		_rhs := parser._parseExpression()
+
+		_type := AND_COMPARATOR
+
+		if _currentToken.Value.(string) == OR {
+			_type = OR_COMPARATOR
+		}
+
+		return LogicalComparison{
+			Type: _type,
+			Lhs:  _lhs,
+			Rhs:  _rhs,
 		}
 	}
 
@@ -389,12 +432,13 @@ func (parser *Parser) _parse(token Token) interface{} {
 				{
 					// check the current state we are in
 					if !parser.EnsureCurrentParsingStateIs(LOOP_STATE, false) {
-						// panic here
-						// parser.ParsingError = "Break cannot be used outside a loop"
-
-						// goto parsingError
-						panic("Break cannot be used outside a loop")
+						parser.reportError(
+							token,
+							"Break cannot be used outside a loop",
+						)
 					}
+
+					parser.eatToken()
 
 					return BreakNode{}
 				}
@@ -404,7 +448,11 @@ func (parser *Parser) _parse(token Token) interface{} {
 					if !parser.EnsureCurrentParsingStateIs(FUNCTION_STATE, true) {
 						// panic here
 						// we should not panic rather jump to an error state --> use gotos
-						panic("Return cannot be used outside a function definition")
+
+						parser.reportError(
+							token,
+							"Return cannot be used outside a function definition",
+						)
 
 						// parser.ParsingError = "Return cannot be used outside a function definition"
 						// goto parsingError
@@ -537,6 +585,10 @@ func (parser *Parser) _parse(token Token) interface{} {
 			return CommentNode{
 				comment: token.Value.(string),
 			}
+		}
+	case CURLY_BRACES:
+		{
+			return parser.parseBlockScope()
 		}
 	default:
 		{

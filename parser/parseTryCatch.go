@@ -6,18 +6,6 @@ import (
 	. "github.com/BEN00262/simpleLang/lexer"
 )
 
-func (parser *Parser) _parseBody() []interface{} {
-	var _body []interface{}
-	_currentToken := parser.CurrentToken()
-
-	for parser.CurrentPosition < parser.TokensLength && !IsTypeAndValue(_currentToken, CURLY_BRACES, "}") {
-		_body = append(_body, parser._parse(_currentToken))
-		_currentToken = parser.CurrentToken()
-	}
-
-	return _body
-}
-
 func (parser *Parser) _parseBlock() (block []interface{}) {
 	// check for braces
 	// then parse the blocks
@@ -28,7 +16,7 @@ func (parser *Parser) _parseBlock() (block []interface{}) {
 	)
 
 	// start parsing the programs
-	block = parser._parseBody() // error thrown from here will be passed down to the catch block and assigned to the name given ---> i think
+	block = parser._parseBlockStatements() // error thrown from here will be passed down to the catch block and assigned to the name given ---> i think
 
 	parser.IsExpectedEatElsePanic(
 		parser.CurrentToken(),
