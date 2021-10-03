@@ -2,130 +2,55 @@ package ast
 
 import (
 	"fmt"
-	"strings"
 
-	. "github.com/BEN00262/simpleLang/parser"
+	parser "github.com/BEN00262/simpleLang/parser"
 )
 
-// this beauty prints the AST
-// get the ast walk it then print the shit out of it
+// walk down the AST and generate javascript code
+// WASM
+
 type AST struct {
-	Depth   int
-	Program *ProgramNode
-	String  string
+	Node *parser.ProgramNode
 }
 
-// we start a depth of 0
-func initAST(program *ProgramNode) *AST {
-	return &AST{
-		Depth:   0,
-		Program: program,
-	}
-}
-
-// implement an interface to interact with the AST and then expose the shit to the language itself
-// so that one can modify stuff
-
-// increment the depth of the ast
-func (ast *AST) IncrementDepth() {
-	ast.Depth += 1
-}
-
-// decrement the depth of the ast
-func (ast *AST) DecrementDepth() {
-	ast.Depth -= 1
-}
-
-// a print at the given spacing :)
-func (ast *AST) DisplayAtCurrentSpacing(whatToPrint string) string {
-	return fmt.Sprintf("%s%s", strings.Repeat(" ", ast.Depth), whatToPrint)
-}
-
-func (ast *AST) AppendToFinalString(content string) {
-	ast.String += content
-}
-
-type ASTWalker interface {
-	// what happens is we get the node ( type, value )
-}
-
-// what the f are we gonna do ---> start something here
-
-func (ast *AST) _walk(child interface{}) string {
-	// start the walking of the AST and printing it
-	switch _node := child.(type) {
-	case VariableNode:
+func (ast *AST) _walk(node interface{}) string {
+	switch _node := node.(type) {
+	case parser.NumberNode:
 		{
-			// just print it at the required depth
-			return ast.DisplayAtCurrentSpacing("<Variable Node>")
+			return parser.Print(_node)
 		}
-	case NumberNode:
+	case parser.VariableNode:
 		{
-			// just print it also at the required depth
-			return ast.DisplayAtCurrentSpacing("<Number Node>")
+			return _node.Value
 		}
-
-	case Assignment:
+	case parser.ExpressionNode:
 		{
-			// display the left and the right
-			ast.AppendToFinalString(
-				ast.DisplayAtCurrentSpacing(
-					fmt.Sprintf("%s = %s", _node.Lvalue, ast._walk(_node.Rvalue)),
-				),
-			)
+			return ast._walk(_node.Expression)
 		}
-	case BinaryNode:
+	case parser.Assignment:
 		{
-			return ast.DisplayAtCurrentSpacing(
-				fmt.Sprintf("%s %s %s", ast._walk(_node.Lhs), _node.Operator, ast._walk(_node.Rhs)),
-			)
-		}
-	case ExpressionNode:
-		{
-			ast.AppendToFinalString(
-				ast.DisplayAtCurrentSpacing("Start of an expression\n"),
-			)
+			rvalue := ast._walk(_node.Rvalue)
 
-			// add the stuff in
-			// ast.AppendToFinalString(
-			// 	ast._walk(_node) + "\n",
-			// )
-
-			ast.AppendToFinalString(
-				ast.DisplayAtCurrentSpacing("end of an expression\n"),
-			)
-		}
-	case FunctionDecl:
-		{
-			ast.AppendToFinalString(
-				ast.DisplayAtCurrentSpacing("<Start of function>\n"),
-			)
-
-			ast.IncrementDepth()
-
-			// we can walk the code and print shit here by the way
-			for _, _code := range _node.Code {
-				ast.AppendToFinalString(
-					ast._walk(_code) + "\n",
-				)
+			switch _node.Type {
+			case parser.CONST_ASSIGNMENT:
+				return fmt.Sprintf("const %s = %s", _node.Lvalue, rvalue)
+			case parser.ASSIGNMENT:
+				return fmt.Sprintf("let %s = %s;", _node.Lvalue, rvalue)
+			case parser.REASSIGNMENT:
+				return fmt.Sprintf("%s = %s;", _node.Lvalue, rvalue)
 			}
-
-			ast.DecrementDepth()
-
-			ast.AppendToFinalString(
-				ast.DisplayAtCurrentSpacing("<End of function>\n"),
-			)
 		}
 	}
 
-	return ast.String
+	return ""
 }
 
-func (ast *AST) walk() {
-	// start the walking of the AST and printing it
-	for _, child := range ast.Program.Nodes {
-		ast._walk(child)
+func (ast *AST) Walk() string {
+	javascript := ""
+
+	for _, node := range ast.Node.Nodes {
+		javascript += ast._walk(node) + "\n"
 	}
 
-	fmt.Println(ast.String)
+	return javascript
 }

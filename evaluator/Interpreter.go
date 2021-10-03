@@ -15,6 +15,14 @@ func Interpreter(codeString string) interface{} {
 	// fmt.Println(program)
 	// fmt.Println()
 
+	// ast := &Ast.AST{
+	// 	Node: program,
+	// }
+
+	// fmt.Println(ast.Walk())
+
+	// return nil
+
 	evaluator := initEvaluator(program)
 
 	evaluator.InitGlobalScope()
