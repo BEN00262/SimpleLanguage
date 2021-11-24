@@ -439,6 +439,7 @@ type FunctionCall struct {
 	Args     []interface{}
 }
 
+// support variadic functions ... what happens is we create an array of the rest and pass them as such
 type FunctionDecl struct {
 	Name       string
 	ParamCount int

@@ -1,0 +1,5 @@
+make.exe --dry-run --always-make --keep-going --print-directory
+make: Entering directory 'c:/Users/USER/langjam2021/simpleLang'
+go build -o build/simpleLang.exe
+make: Leaving directory 'c:/Users/USER/langjam2021/simpleLang'
+ 

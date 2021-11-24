@@ -1,1 +1,3 @@
-def sample = 90
+def name = 89
+
+name = "john"

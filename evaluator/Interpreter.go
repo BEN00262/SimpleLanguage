@@ -29,4 +29,23 @@ func Interpreter(codeString string) interface{} {
 	LoadGlobalsToContext(evaluator)
 
 	return evaluator.Evaluate(true)
+
+	// ast := &Ast.AST{
+	// 	Node: program,
+	// }
+
+	// fmt.Println(ast.Walk())
+
+	// Typecheck
+
+	// typeChecker := &Ast.AST{
+	// 	Node: program,
+	// }
+
+	// fmt.Println(ast.Walk())
+
+	// typechecker := Typecheck.NewTypeChecker(program)
+	// typechecker.Walk()
+
+	return nil
 }
