@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"log"
+	"path/filepath"
 
 	. "github.com/BEN00262/simpleLang/evaluator"
 )
@@ -15,14 +17,21 @@ var (
 	outfile   = flag.String("out", "", "< out file > filename to write the documentation to")
 )
 
-func getFileData(filename string) string {
-	data, err := ioutil.ReadFile(filename)
+func getFileData(filename string) (string, string) {
+	// how are we going to find the path of the file?
+	path, err := filepath.Abs(filename)
+
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	data, err := ioutil.ReadFile(path)
 
 	if err != nil {
 		panic(err.Error())
 	}
 
-	return string(data)
+	return filepath.Dir(path), string(data)
 }
 
 func main() {

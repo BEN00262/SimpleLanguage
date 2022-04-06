@@ -1,0 +1,2 @@
+def a = 67 + "sample"
+print(a)

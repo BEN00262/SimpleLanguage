@@ -13,11 +13,13 @@ var (
 
 type LiteralParsing struct {
 	KnuthCode string
+	filePath  string
 }
 
-func InitLiteralParsing(knuthCode string) *LiteralParsing {
+func InitLiteralParsing(filePath string, knuthCode string) *LiteralParsing {
 	return &LiteralParsing{
 		KnuthCode: knuthCode,
+		filePath:  filePath,
 	}
 }
 
@@ -30,7 +32,7 @@ func (literal *LiteralParsing) ExecuteLiteralCode() interface{} {
 		}
 	}
 
-	return Interpreter(strings.Join(codeStrings, "\n"))
+	return Interpreter(literal.filePath, strings.Join(codeStrings, "\n"))
 }
 
 func (literal *LiteralParsing) GenerateDocumentation() string {

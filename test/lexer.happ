@@ -6,7 +6,7 @@ def EQUALS = 4
 
 def letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
-fun IsLetter(char) {
+expose fun IsLetter(char) {
     for (def pos = 0; pos < len(letters); pos + 1) {
         if letters[pos] == char {
             return true
@@ -16,7 +16,7 @@ fun IsLetter(char) {
     return false
 }
 
-def numbers = "0123456789"
+expose def numbers = "0123456789"
 
 fun IsNumber(number) {
     for (def pos = 0; pos < len(numbers); pos + 1) {

@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	. "github.com/BEN00262/simpleLang/exceptions"
 	. "github.com/BEN00262/simpleLang/lexer"
@@ -35,17 +36,11 @@ func (eval *Evaluator) LoadModule(module Import) ExceptionNode {
 	// otherwise we namespace
 
 	// create push our own context then use it later
+	isSystemImport := true
 
-	_basePath, err := os.Executable()
-
-	if err != nil {
-		// we get the error code for not working here
-		// what happens for now we use the path in the current directory
-
-		return ExceptionNode{
-			Type:    MODULE_IMPORT_EXCEPTION,
-			Message: err.Error(),
-		}
+	// this is a local import
+	if strings.HasPrefix(module.FileName, "./") || strings.HasPrefix(module.FileName, "../") {
+		isSystemImport = false
 	}
 
 	// check if the module has a .happ extension if not add it
@@ -59,8 +54,46 @@ func (eval *Evaluator) LoadModule(module Import) ExceptionNode {
 
 	// should find the actual root folder of the stuff then get the files from there
 
+	// check if the
+
 	// system includes
-	importedModule, err := ioutil.ReadFile(filepath.Join(filepath.Dir(_basePath), "includes", module.FileName))
+	// filepath.Base(path)
+	importPath := ""
+
+	if isSystemImport {
+		_basePath, err := os.Executable()
+
+		if err != nil {
+			// we get the error code for not working here
+			// what happens for now we use the path in the current directory
+
+			return ExceptionNode{
+				Type:    MODULE_IMPORT_EXCEPTION,
+				Message: err.Error(),
+			}
+		}
+
+		importPath = filepath.Join(
+			filepath.Dir(_basePath),
+			"includes",
+			module.FileName,
+		)
+	} else {
+		// local import
+		importPath = filepath.Join(
+			eval.baseFilePath,
+			module.FileName,
+		)
+	}
+
+	if importPath == "" {
+		return ExceptionNode{
+			Type:    MODULE_IMPORT_EXCEPTION,
+			Message: "Failed to resolve the import path",
+		}
+	}
+
+	importedModule, err := ioutil.ReadFile(importPath)
 
 	if err != nil {
 		return ExceptionNode{

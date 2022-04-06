@@ -38,14 +38,16 @@ type SymbolTableValue struct {
 // what are we doing here we need to work with pointers to the values
 
 type Evaluator struct {
+	baseFilePath string
 	program      *ProgramNode
 	symbolsTable *symTable.SymbolsTable
 	IsExported   bool // used to show the current assignment is exported
 	evalCache    CodeCache
 }
 
-func initEvaluator(program *ProgramNode) *Evaluator {
+func initEvaluator(program *ProgramNode, filePath string) *Evaluator {
 	return &Evaluator{
+		baseFilePath: filePath,
 		program:      program,
 		symbolsTable: symTable.InitSymbolsTable(),
 		evalCache:    CodeCache{},

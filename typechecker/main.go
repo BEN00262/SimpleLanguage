@@ -184,7 +184,7 @@ func (typecheck *TypeChecker) _typecheck(node interface{}) Types {
 	return NULL
 }
 
-func (typecheck *TypeChecker) Walk() {
+func (typecheck *TypeChecker) Walk() *parser.ProgramNode {
 	// context maintainance
 	typecheck.symbolsTable.PushContext()
 	defer typecheck.symbolsTable.PopContext()
@@ -192,4 +192,6 @@ func (typecheck *TypeChecker) Walk() {
 	for _, node := range typecheck.program.Nodes {
 		typecheck._typecheck(node)
 	}
+
+	return typecheck.program
 }

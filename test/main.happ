@@ -9,6 +9,19 @@ fun fizzbuzz(number) {
     }
 }
 
+# be able to write a server with this language :) ( support a bunch of other stuffs )
+fun router(path, handler) {
+    # this is a simple router
+}
+
+# all of these require the maps data structure to work efficiently :(
+router(
+    "/",
+    fun (request, response) {
+
+    }
+)
+
 for (def counter = 0; counter < 20; counter + 1) {
     if counter%3 == 0 {
         if counter%5 == 0 {
