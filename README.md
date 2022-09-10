@@ -1,6 +1,6 @@
 ### Happy Programming Language
 > The language is still being heavily developed any bugs, bad coding practices etc will be corrected in due time
-> This is a simple experimental programming language that am literally intendeding for it to become big :)
+> This is a simple experimental programming language that am literally intending for it to become big :)
 
 #### BUGS
 > The parser is not well implemented yet, the evaluator has massive code repetitions and alot more but hey it works :)
